@@ -1,0 +1,23 @@
+{
+  "name": "jobflow",
+  "version": "1.0.0",
+  "description": "JobFlow - Job Search Application",
+  "scripts": {
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:restart": "docker-compose restart",
+    "docker:logs": "docker-compose logs -f",
+    "docker:logs:db": "docker-compose logs -f mongodb",
+    "docker:clean": "docker-compose down -v",
+    "db:status": "docker ps --filter name=jobflow-mongodb",
+    "backend:dev": "cd jobflow-backend && npm run start:dev",
+    "frontend:dev": "cd jobflow-frontend && npm run dev",
+    "dev": "npm run docker:up && concurrently \"npm run backend:dev\" \"npm run frontend:dev\""
+  },
+  "keywords": ["jobflow", "job-search", "nestjs", "react"],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

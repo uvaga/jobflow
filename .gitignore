@@ -1,0 +1,22 @@
+# Environment
+.env
+.env.local
+.env.*.local
+nul
+
+# Dependencies
+node_modules/
+
+# Docker volumes
+docker/mongo-data/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
