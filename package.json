@@ -12,12 +12,20 @@
     "db:status": "docker ps --filter name=jobflow-mongodb",
     "backend:dev": "cd jobflow-backend && npm run start:dev",
     "frontend:dev": "cd jobflow-frontend && npm run dev",
-    "dev": "npm run docker:up && concurrently \"npm run backend:dev\" \"npm run frontend:dev\""
+    "dev": "npm run docker:up && concurrently \"npm run backend:dev\" \"npm run frontend:dev\"",
+    "stop:ports": "npx kill-port 3000 3001 || echo No processes to kill",
+    "stop": "npm run stop:ports && npm run docker:down"
   },
-  "keywords": ["jobflow", "job-search", "nestjs", "react"],
+  "keywords": [
+    "jobflow",
+    "job-search",
+    "nestjs",
+    "react"
+  ],
   "author": "",
   "license": "MIT",
   "devDependencies": {
-    "concurrently": "^8.2.2"
+    "concurrently": "^8.2.2",
+    "kill-port": "^2.0.1"
   }
 }

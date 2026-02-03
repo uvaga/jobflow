@@ -264,9 +264,9 @@ VacancySchema.index({ hhId: 1 });
 VacancySchema.index({ 'area.id': 1, 'salary.from': 1 }); // Compound index for filtering
 ```
 
-**Application Schema** (`src/applications/schemas/application.schema.ts`):
+**VacancyProgress Schema** (`src/vacancy-progress/schemas/vacancy-progress.schema.ts`):
 ```typescript
-export enum ApplicationStatus {
+export enum VacancyProgressStatus {
   SAVED = 'saved',
   APPLIED = 'applied',
   INTERVIEW_SCHEDULED = 'interview_scheduled',
@@ -278,7 +278,7 @@ export enum ApplicationStatus {
 }
 
 @Schema({ timestamps: true })
-export class Application extends Document {
+export class VacancyProgress extends Document {
   @Prop({ type: Types.ObjectId, ref: 'User', required: true, index: true })
   userId: Types.ObjectId;
 
@@ -287,10 +287,10 @@ export class Application extends Document {
 
   @Prop({
     type: String,
-    enum: Object.values(ApplicationStatus),
-    default: ApplicationStatus.SAVED
+    enum: Object.values(VacancyProgressStatus),
+    default: VacancyProgressStatus.SAVED
   })
-  status: ApplicationStatus;
+  status: VacancyProgressStatus;
 
   @Prop({ trim: true, maxlength: 2000 })
   notes: string;
@@ -308,9 +308,9 @@ export class Application extends Document {
   priority: number; // User-defined priority (0-5)
 }
 
-export const ApplicationSchema = SchemaFactory.createForClass(Application);
-ApplicationSchema.index({ userId: 1, status: 1 });
-ApplicationSchema.index({ userId: 1, createdAt: -1 });
+export const VacancyProgressSchema = SchemaFactory.createForClass(VacancyProgress);
+VacancyProgressSchema.index({ userId: 1, status: 1 });
+VacancyProgressSchema.index({ userId: 1, createdAt: -1 });
 ```
 
 ### Task 2.2: Create NestJS Modules (Best Practices)
@@ -383,20 +383,21 @@ module-name/
 // interfaces/hh-api-response.interface.ts - Type definitions
 ```
 
-**Applications Module** (`src/applications/`):
+**VacancyProgress Module** (`src/vacancy-progress/`):
 ```typescript
-// applications.controller.ts:
-//   - POST /api/v1/applications
-//   - GET /api/v1/applications (with filters)
-//   - GET /api/v1/applications/:id
-//   - PATCH /api/v1/applications/:id
-//   - DELETE /api/v1/applications/:id
-//   - GET /api/v1/applications/statistics (dashboard data)
-// applications.service.ts - CRUD + business logic
-// applications.module.ts
-// dto/create-application.dto.ts
-// dto/update-application.dto.ts
-// dto/query-applications.dto.ts
+// vacancy-progress.controller.ts:
+//   - POST /api/v1/vacancy-progress
+//   - GET /api/v1/vacancy-progress (with filters)
+//   - GET /api/v1/vacancy-progress/:id
+//   - PATCH /api/v1/vacancy-progress/:id
+//   - DELETE /api/v1/vacancy-progress/:id
+//   - GET /api/v1/vacancy-progress/statistics (dashboard data)
+// vacancy-progress.service.ts - CRUD + business logic
+// vacancy-progress.module.ts
+// enums/vacancy-progress-status.enum.ts
+// dto/create-vacancy-progress.dto.ts
+// dto/update-vacancy-progress.dto.ts
+// dto/query-vacancy-progress.dto.ts
 ```
 
 **Best Practices:**
@@ -724,33 +725,33 @@ function App() {
 // Props: user, onUpdate
 ```
 
-**Application Components:**
+**VacancyProgress Components:**
 ```typescript
-// src/components/Applications/ApplicationCard.tsx
+// src/components/VacancyProgress/VacancyProgressCard.tsx
 // - Material-UI Card with status color coding
 // - Vacancy title and company
 // - Status badge
 // - Quick actions (edit status, add note)
 // - Timeline of status changes
-// Props: application, onUpdate
+// Props: vacancyProgress, onUpdate
 
-// src/components/Applications/ApplicationList.tsx
+// src/components/VacancyProgress/VacancyProgressList.tsx
 // - Filter by status
 // - Sort by date
 // - Group by status (Kanban-style optional)
-// Props: applications, onStatusChange
+// Props: vacancyProgressList, onStatusChange
 
-// src/components/Applications/StatusBadge.tsx
+// src/components/VacancyProgress/StatusBadge.tsx
 // - Color-coded chip/badge
 // - Icon for each status
 // Props: status
 
-// src/components/Applications/ApplicationModal.tsx
-// - Edit application details
+// src/components/VacancyProgress/VacancyProgressModal.tsx
+// - Edit application tracking details
 // - Status dropdown
 // - Rich text notes editor
 // - Interview date picker
-// Props: application, onSave, onClose
+// Props: vacancyProgress, onSave, onClose
 ```
 
 ### Task 3.3: State Management & API Integration
@@ -821,14 +822,14 @@ export const userService = {
   unsaveVacancy: (vacancyId: string) => api.delete(`/users/me/saved-vacancies/${vacancyId}`),
 };
 
-// src/services/applicationService.ts
-export const applicationService = {
-  getAll: (filters?: ApplicationFilters) => api.get('/applications', { params: filters }),
-  getById: (id: string) => api.get(`/applications/${id}`),
-  create: (data: CreateApplicationDto) => api.post('/applications', data),
-  update: (id: string, data: UpdateApplicationDto) => api.patch(`/applications/${id}`, data),
-  delete: (id: string) => api.delete(`/applications/${id}`),
-  getStatistics: () => api.get('/applications/statistics'),
+// src/services/vacancyProgressService.ts
+export const vacancyProgressService = {
+  getAll: (filters?: VacancyProgressFilters) => api.get('/vacancy-progress', { params: filters }),
+  getById: (id: string) => api.get(`/vacancy-progress/${id}`),
+  create: (data: CreateVacancyProgressDto) => api.post('/vacancy-progress', data),
+  update: (id: string, data: UpdateVacancyProgressDto) => api.patch(`/vacancy-progress/${id}`, data),
+  delete: (id: string) => api.delete(`/vacancy-progress/${id}`),
+  getStatistics: () => api.get('/vacancy-progress/statistics'),
 };
 ```
 
@@ -902,51 +903,51 @@ export const useVacancyDetail = (id: string) => {
   });
 };
 
-// src/hooks/useApplications.ts
+// src/hooks/useVacancyProgress.ts
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-export const useApplications = (filters?: ApplicationFilters) => {
+export const useVacancyProgress = (filters?: VacancyProgressFilters) => {
   return useQuery({
-    queryKey: ['applications', filters],
-    queryFn: () => applicationService.getAll(filters),
+    queryKey: ['vacancyProgress', filters],
+    queryFn: () => vacancyProgressService.getAll(filters),
   });
 };
 
-export const useCreateApplication = () => {
+export const useCreateVacancyProgress = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: applicationService.create,
+    mutationFn: vacancyProgressService.create,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['applications'] });
-      toast.success('Application created successfully');
+      queryClient.invalidateQueries({ queryKey: ['vacancyProgress'] });
+      toast.success('Application tracking created successfully');
     },
   });
 };
 
 // Optimistic updates example
-export const useUpdateApplication = () => {
+export const useUpdateVacancyProgress = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: UpdateApplicationDto }) =>
-      applicationService.update(id, data),
+    mutationFn: ({ id, data }: { id: string; data: UpdateVacancyProgressDto }) =>
+      vacancyProgressService.update(id, data),
     onMutate: async ({ id, data }) => {
-      await queryClient.cancelQueries({ queryKey: ['applications'] });
-      const previous = queryClient.getQueryData(['applications']);
-      queryClient.setQueryData(['applications'], (old: any) => ({
+      await queryClient.cancelQueries({ queryKey: ['vacancyProgress'] });
+      const previous = queryClient.getQueryData(['vacancyProgress']);
+      queryClient.setQueryData(['vacancyProgress'], (old: any) => ({
         ...old,
-        data: old.data.map((app: Application) =>
-          app.id === id ? { ...app, ...data } : app
+        data: old.data.map((progress: VacancyProgress) =>
+          progress.id === id ? { ...progress, ...data } : progress
         ),
       }));
       return { previous };
     },
     onError: (err, variables, context) => {
       if (context?.previous) {
-        queryClient.setQueryData(['applications'], context.previous);
+        queryClient.setQueryData(['vacancyProgress'], context.previous);
       }
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['applications'] });
+      queryClient.invalidateQueries({ queryKey: ['vacancyProgress'] });
     },
   });
 };
@@ -1475,8 +1476,10 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 ### Sprint 1: Setup & Authentication (Week 1)
 **Backend:**
 - ✅ NestJS initialized
-- [ ] Configure MongoDB connection with Mongoose
-- [ ] Create User schema with indexes
+- ✅ Configure MongoDB connection with Mongoose
+- ✅ Create User schema with indexes
+- ✅ Create Vacancy schema with indexes and TTL
+- ✅ Create VacancyProgress schema with indexes
 - [ ] Set up Auth module with JWT + refresh tokens
 - [ ] Implement register/login/refresh endpoints
 - [ ] Add validation DTOs
@@ -1548,16 +1551,18 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 
 ### Sprint 4: Application Tracking (Week 4)
 **Backend:**
-- [ ] Create Application schema with status enum
-- [ ] Implement Applications module (full CRUD)
+- [x] Create VacancyProgress schema with status enum
+- [x] Implement VacancyProgress module structure
+- [ ] Implement VacancyProgress service (full CRUD)
+- [ ] Implement VacancyProgress controller endpoints
 - [ ] Add filtering by status
 - [ ] Add statistics endpoint for dashboard
 - [ ] Test all endpoints
 
 **Frontend:**
 - [ ] Create Applications page with tabs/filters
-- [ ] Implement ApplicationCard component
-- [ ] Create ApplicationModal for editing
+- [ ] Implement VacancyProgressCard component
+- [ ] Create VacancyProgressModal for editing
 - [ ] Add StatusBadge with color coding
 - [ ] Implement status change functionality
 - [ ] Add notes functionality
@@ -1806,12 +1811,13 @@ CMD ["npm", "run", "dev", "--", "--host"]
 - DELETE /api/users/saved-vacancies/:vacancyId
 - GET /api/users/saved-vacancies
 
-### Applications
-- POST /api/applications
-- GET /api/applications
-- GET /api/applications/:id
-- PATCH /api/applications/:id
-- DELETE /api/applications/:id
+### VacancyProgress (Application Tracking)
+- POST /api/vacancy-progress
+- GET /api/vacancy-progress
+- GET /api/vacancy-progress/:id
+- PATCH /api/vacancy-progress/:id
+- DELETE /api/vacancy-progress/:id
+- GET /api/vacancy-progress/statistics
 
 ---
 
