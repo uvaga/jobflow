@@ -16,7 +16,7 @@ export const apiClient: AxiosInstance = axios.create({
 // Request interceptor - Add auth token
 apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
-    const token = localStorage.getItem('authToken');
+    const token = localStorage.getItem('accessToken');
 
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
@@ -36,7 +36,7 @@ apiClient.interceptors.response.use(
   (response) => response,
   (error: AxiosError) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem('authToken');
+      localStorage.removeItem('accessToken');
       window.location.href = '/login';
     }
 

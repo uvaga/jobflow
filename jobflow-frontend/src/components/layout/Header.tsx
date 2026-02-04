@@ -31,7 +31,7 @@ export default function Header() {
   const handleLogout = () => {
     logout();
     handleClose();
-    navigate('/login');
+    void navigate('/login');
   };
 
   return (
@@ -55,12 +55,10 @@ export default function Header() {
             JobFlow
           </Typography>
 
-          <Box sx={{ flexGrow: 1, display: { xs: 'none', md: 'flex' }, gap: 2 }}>
-            <Button
-              component={RouterLink}
-              to="/search"
-              sx={{ color: 'white' }}
-            >
+          <Box
+            sx={{ flexGrow: 1, display: { xs: 'none', md: 'flex' }, gap: 2 }}
+          >
+            <Button component={RouterLink} to="/search" sx={{ color: 'white' }}>
               Search Jobs
             </Button>
             {isAuthenticated && (
@@ -86,11 +84,7 @@ export default function Header() {
           <Box sx={{ flexGrow: 0 }}>
             {isAuthenticated ? (
               <>
-                <IconButton
-                  size="large"
-                  onClick={handleMenu}
-                  color="inherit"
-                >
+                <IconButton size="large" onClick={handleMenu} color="inherit">
                   <AccountCircleIcon />
                 </IconButton>
                 <Menu
@@ -137,7 +131,11 @@ export default function Header() {
                   to="/register"
                   color="inherit"
                   variant="contained"
-                  sx={{ bgcolor: 'white', color: 'primary.main', '&:hover': { bgcolor: 'grey.100' } }}
+                  sx={{
+                    bgcolor: 'white',
+                    color: 'primary.main',
+                    '&:hover': { bgcolor: 'grey.100' },
+                  }}
                 >
                   Sign Up
                 </Button>

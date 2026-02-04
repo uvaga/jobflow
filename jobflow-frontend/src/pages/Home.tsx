@@ -19,8 +19,14 @@ export default function Home() {
         <Typography variant="h2" component="h1" gutterBottom fontWeight="bold">
           Find Your Dream Job
         </Typography>
-        <Typography variant="h5" color="text.secondary" paragraph sx={{ mb: 4, maxWidth: 600 }}>
-          Search thousands of job vacancies from hh.ru and track your applications all in one place
+        <Typography
+          variant="h5"
+          color="text.secondary"
+          paragraph
+          sx={{ mb: 4, maxWidth: 600 }}
+        >
+          Search thousands of job vacancies from hh.ru and track your
+          applications all in one place
         </Typography>
         <Stack direction="row" spacing={2}>
           <Button

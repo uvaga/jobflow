@@ -12,7 +12,9 @@
       "Bash(ls:*)",
       "Bash(npm run db:status:*)",
       "Bash(npm run type-check:*)",
-      "Bash(timeout 10 npm run dev:*)"
+      "Bash(timeout 10 npm run dev:*)",
+      "Bash(npm run lint)",
+      "Bash(npm run lint:*)"
     ]
   }
 }

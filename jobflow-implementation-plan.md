@@ -362,10 +362,10 @@ module-name/
 // users.controller.ts:
 //   - GET /api/v1/users/me (current user profile)
 //   - PUT /api/v1/users/me (update profile)
-//   - GET /api/v1/users/me/saved-vacancies
-//   - POST /api/v1/users/me/saved-vacancies/:vacancyId
-//   - DELETE /api/v1/users/me/saved-vacancies/:vacancyId
-// users.service.ts - User CRUD, saved vacancies management
+//   - GET /api/v1/users/me/vacancies (get saved vacancies)
+//   - POST /api/v1/users/me/vacancies/:vacancyId (add vacancy)
+//   - DELETE /api/v1/users/me/vacancies/:vacancyId (remove vacancy)
+// users.service.ts - User CRUD, saved vacancies management (addVacancy, removeVacancy)
 // users.module.ts
 // dto/update-user.dto.ts
 ```
@@ -818,9 +818,9 @@ export const vacancyService = {
 export const userService = {
   getProfile: () => api.get('/users/me'),
   updateProfile: (data: UpdateUserDto) => api.put('/users/me', data),
-  getSavedVacancies: () => api.get('/users/me/saved-vacancies'),
-  saveVacancy: (vacancyId: string) => api.post(`/users/me/saved-vacancies/${vacancyId}`),
-  unsaveVacancy: (vacancyId: string) => api.delete(`/users/me/saved-vacancies/${vacancyId}`),
+  getSavedVacancies: () => api.get('/users/me/vacancies'),
+  addVacancy: (vacancyId: string) => api.post(`/users/me/vacancies/${vacancyId}`),
+  removeVacancy: (vacancyId: string) => api.delete(`/users/me/vacancies/${vacancyId}`),
 };
 
 // src/services/vacancyProgressService.ts
@@ -965,7 +965,7 @@ export const useToggleSaveVacancy = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ vacancyId, isSaved }: { vacancyId: string; isSaved: boolean }) =>
-      isSaved ? userService.unsaveVacancy(vacancyId) : userService.saveVacancy(vacancyId),
+      isSaved ? userService.removeVacancy(vacancyId) : userService.addVacancy(vacancyId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['savedVacancies'] });
     },
@@ -1532,8 +1532,8 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 **Backend:**
 - [ ] Add GET /vacancies/:id endpoint
 - [ ] Implement saved vacancies in User model
-- [ ] Create endpoints for save/unsave vacancy
-- [ ] Add GET /users/me/saved-vacancies endpoint
+- [ ] Create endpoints for add/remove vacancy (addVacancy, removeVacancy methods)
+- [ ] Add GET /users/me/vacancies endpoint (getSavedVacancies)
 - [ ] Implement proper error handling
 
 **Frontend:**
@@ -1797,20 +1797,20 @@ CMD ["npm", "run", "dev", "--", "--host"]
 ## API Endpoints Summary
 
 ### Authentication
-- POST /api/auth/register
-- POST /api/auth/login
+- POST /api/v1/auth/register
+- POST /api/v1/auth/login
 
 ### Users
-- GET /api/users/profile
-- PUT /api/users/profile
+- GET /api/v1/users/me (profile)
+- PUT /api/v1/users/me (update profile)
+- GET /api/v1/users/me/vacancies (get saved vacancies)
+- POST /api/v1/users/me/vacancies/:vacancyId (add vacancy)
+- DELETE /api/v1/users/me/vacancies/:vacancyId (remove vacancy)
 
 ### Vacancies
-- GET /api/vacancies/search?text=&area=&salary=&page=
-- GET /api/vacancies/:id
-- GET /api/vacancies/dictionaries
-- POST /api/users/saved-vacancies/:vacancyId
-- DELETE /api/users/saved-vacancies/:vacancyId
-- GET /api/users/saved-vacancies
+- GET /api/v1/vacancies?text=&area=&salary=&page= (search)
+- GET /api/v1/vacancies/:id (get details)
+- GET /api/v1/vacancies/dictionaries
 
 ### VacancyProgress (Application Tracking)
 - POST /api/vacancy-progress

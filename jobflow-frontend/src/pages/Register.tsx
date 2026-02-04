@@ -14,7 +14,14 @@ export default function Register() {
         }}
       >
         <Paper elevation={3} sx={{ p: 4 }}>
-          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 3 }}>
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              mb: 3,
+            }}
+          >
             <PersonAddIcon color="primary" sx={{ fontSize: 40, mb: 1 }} />
             <Typography variant="h4" component="h1">
               Create Account
