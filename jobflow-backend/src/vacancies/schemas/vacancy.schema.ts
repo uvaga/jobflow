@@ -8,7 +8,6 @@ export class Vacancy extends Document {
   @Prop({
     required: true,
     unique: true,
-    index: true,
   })
   hhId: string;
 
@@ -88,8 +87,7 @@ export class Vacancy extends Document {
 
 export const VacancySchema = SchemaFactory.createForClass(Vacancy);
 
-// Create indexes
-VacancySchema.index({ hhId: 1 }, { unique: true });
+// Create indexes (hhId unique index is created automatically by unique: true in @Prop)
 VacancySchema.index({ 'area.id': 1, 'salary.from': 1 });
 
 // TTL index for automatic cache expiration

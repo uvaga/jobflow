@@ -9,7 +9,10 @@
       "Bash(curl:*)",
       "Bash(python:*)",
       "Bash(npm run test:e2e:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(npm run db:status:*)",
+      "Bash(npm run type-check:*)",
+      "Bash(timeout 10 npm run dev:*)"
     ]
   }
 }

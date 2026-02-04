@@ -146,12 +146,20 @@ npm run format             # Format with Prettier
 - `components/common/` - Reusable components (buttons, inputs, etc.)
 - `components/features/` - Feature-specific components
 - `components/layout/` - Layout components (header, sidebar, etc.)
-- `pages/` - Route-level page components
+- `components/VacancyProgress/` - VacancyProgress-specific components (NOT `Applications/`)
+- `pages/` - Route-level page components (e.g., `VacancyProgress.tsx`)
 - `hooks/` - Custom React hooks
 - `services/` - API service functions (use apiClient from `@/config/api`)
 - `store/` - Zustand store definitions
 - `types/` - TypeScript type definitions
 - `utils/` - Utility functions
+
+**Component Naming Example**:
+- ✅ `components/VacancyProgress/VacancyProgressCard.tsx`
+- ✅ `pages/VacancyProgress.tsx`
+- ✅ `services/vacancyProgressService.ts`
+- ❌ `components/Applications/ApplicationCard.tsx`
+- ❌ `pages/Applications.tsx`
 
 ## Key Conventions
 
@@ -253,10 +261,28 @@ After starting the application, the following collections are created in MongoDB
 **VacancyProgress vs Application**:
 - The schema for tracking job applications is called `VacancyProgress` (not `Application`)
 - This avoids confusion with "app" or "application" referring to the software itself
-- Use `VacancyProgress` in backend code, schemas, modules, and services
-- Frontend may use "Application" in UI-facing text, but use `VacancyProgress` in code
-- Enum: `VacancyProgressStatus` (in `src/vacancy-progress/enums/`)
-- API endpoints: `/api/v1/vacancy-progress/*`
+- **Backend:** Always use `VacancyProgress` in all code:
+  - Schema: `VacancyProgress`
+  - Module directory: `src/vacancy-progress/`
+  - Service: `VacancyProgressService`
+  - Controller: `VacancyProgressController`
+  - DTOs: `CreateVacancyProgressDto`, `UpdateVacancyProgressDto`
+  - Enum: `VacancyProgressStatus` (in `src/vacancy-progress/enums/`)
+  - API endpoints: `/api/v1/vacancy-progress/*`
+  - Collection: `vacancyprogresses`
+- **Frontend code:** Always use `VacancyProgress` in all code elements:
+  - Page component: `VacancyProgress.tsx` (NOT `Applications.tsx`)
+  - Route path: `/vacancy-progress` (NOT `/applications`)
+  - Component directory: `components/VacancyProgress/`
+  - Service file: `services/vacancyProgressService.ts`
+  - Type interfaces: `VacancyProgress`, `VacancyProgressStatus`
+  - Hook names: `useVacancyProgress`, `useCreateVacancyProgress`
+- **Frontend UI text:** You MAY use "Application" in display text only:
+  - Page titles: "My Applications" ✅
+  - Button labels: "Track Application" ✅
+  - Navigation menu: "Applications" ✅
+  - Breadcrumbs: "Home > Applications" ✅
+  - But NOT in: file names, component names, route paths, variable names, function names ❌
 
 ## Notes
 

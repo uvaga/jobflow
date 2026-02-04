@@ -7,6 +7,8 @@ import { AppModule } from '../../src/app.module';
 import { testUsers } from '../fixtures/test-data';
 import { AuthHelper } from '../helpers/auth-helper';
 import { CleanupHelper } from '../helpers/cleanup-helper';
+import { HhApiService } from '../../src/vacancies/hh-api.service';
+import { MockHhApiService } from '../mocks/hh-api.mock';
 
 describe('Users (e2e)', () => {
   let app: INestApplication;
@@ -18,7 +20,10 @@ describe('Users (e2e)', () => {
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
-    }).compile();
+    })
+      .overrideProvider(HhApiService)
+      .useClass(MockHhApiService)
+      .compile();
 
     app = moduleFixture.createNestApplication();
 
@@ -190,12 +195,8 @@ describe('Users (e2e)', () => {
     let vacancyId: string;
 
     beforeEach(async () => {
-      // Get a real vacancy from hh.ru to use for testing
-      const searchResponse = await request(app.getHttpServer())
-        .get('/api/v1/vacancies/search?text=developer&per_page=1')
-        .expect(200);
-
-      const hhId = searchResponse.body.data.items[0].id;
+      // Use mock vacancy data (MockHhApiService provides this)
+      const hhId = '100000001'; // Mock vacancy ID from MockHhApiService
 
       // Get the vacancy details which creates it in our DB
       const vacancyResponse = await request(app.getHttpServer())

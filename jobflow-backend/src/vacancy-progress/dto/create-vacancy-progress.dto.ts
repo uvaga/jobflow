@@ -5,6 +5,7 @@ import {
   IsDate,
   IsArray,
   IsNumber,
+  IsEnum,
   Min,
   Max,
 } from 'class-validator';
@@ -20,7 +21,7 @@ export class CreateVacancyProgressDto {
 
   @ApiPropertyOptional({ enum: VacancyProgressStatus })
   @IsOptional()
-  @IsString()
+  @IsEnum(VacancyProgressStatus)
   status?: VacancyProgressStatus;
 
   @ApiPropertyOptional()

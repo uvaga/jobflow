@@ -16,7 +16,8 @@ export class VacancyProgressService {
   async create(userId: string, dto: CreateVacancyProgressDto) {
     const vacancyProgress = new this.vacancyProgressModel({
       ...dto,
-      userId,
+      userId: new Types.ObjectId(userId),
+      vacancyId: new Types.ObjectId(dto.vacancyId),
     });
     return vacancyProgress.save();
   }

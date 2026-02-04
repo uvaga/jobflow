@@ -6,6 +6,8 @@ import request from 'supertest';
 import { AppModule } from '../../src/app.module';
 import { testUsers } from '../fixtures/test-data';
 import { CleanupHelper } from '../helpers/cleanup-helper';
+import { HhApiService } from '../../src/vacancies/hh-api.service';
+import { MockHhApiService } from '../mocks/hh-api.mock';
 
 describe('Authentication (e2e)', () => {
   let app: INestApplication;
@@ -14,7 +16,10 @@ describe('Authentication (e2e)', () => {
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
-    }).compile();
+    })
+      .overrideProvider(HhApiService)
+      .useClass(MockHhApiService)
+      .compile();
 
     app = moduleFixture.createNestApplication();
 

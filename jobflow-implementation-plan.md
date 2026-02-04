@@ -554,6 +554,7 @@ src/
 │   ├── Layout/
 │   ├── Search/
 │   ├── Vacancy/
+│   ├── VacancyProgress/  # Application tracking components
 │   ├── Auth/
 │   └── common/       # Shared components (Button, Input, etc.)
 ├── pages/            # Route components
@@ -561,7 +562,7 @@ src/
 │   ├── Search.tsx
 │   ├── VacancyDetail.tsx
 │   ├── SavedVacancies.tsx
-│   ├── Applications.tsx
+│   ├── VacancyProgress.tsx  # Application tracking page (displays as "My Applications")
 │   ├── Login.tsx
 │   ├── Register.tsx
 │   └── Profile.tsx
@@ -604,7 +605,7 @@ function App() {
             {/* Protected routes */}
             <Route element={<ProtectedRoute />}>
               <Route path="saved" element={<SavedVacancies />} />
-              <Route path="applications" element={<Applications />} />
+              <Route path="vacancy-progress" element={<VacancyProgress />} />
               <Route path="profile" element={<Profile />} />
             </Route>
 
@@ -1560,7 +1561,7 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 - [ ] Test all endpoints
 
 **Frontend:**
-- [ ] Create Applications page with tabs/filters
+- [ ] Create VacancyProgress page with tabs/filters (displays as "My Applications" to users)
 - [ ] Implement VacancyProgressCard component
 - [ ] Create VacancyProgressModal for editing
 - [ ] Add StatusBadge with color coding

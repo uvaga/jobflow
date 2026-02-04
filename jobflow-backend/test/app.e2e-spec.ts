@@ -2,6 +2,8 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from './../src/app.module';
+import { HhApiService } from '../src/vacancies/hh-api.service';
+import { MockHhApiService } from './mocks/hh-api.mock';
 
 describe('AppController (e2e)', () => {
   let app: INestApplication;
@@ -9,7 +11,10 @@ describe('AppController (e2e)', () => {
   beforeEach(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
-    }).compile();
+    })
+      .overrideProvider(HhApiService)
+      .useClass(MockHhApiService)
+      .compile();
 
     app = moduleFixture.createNestApplication();
 
