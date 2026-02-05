@@ -38,13 +38,13 @@ describe('Vacancies (e2e)', () => {
     cleanupHelper = new CleanupHelper(connection);
   });
 
+  beforeEach(async () => {
+    await cleanupHelper.cleanDatabase();
+  });
+
   afterAll(async () => {
     await cleanupHelper.cleanDatabase();
     await app.close();
-  });
-
-  afterEach(async () => {
-    await cleanupHelper.cleanCollection('vacancies');
   });
 
   describe('GET /api/v1/vacancies/search', () => {

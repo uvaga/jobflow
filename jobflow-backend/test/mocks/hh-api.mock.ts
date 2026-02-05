@@ -1,4 +1,5 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { testVacancies } from '../fixtures/test-data';
 
 /**
  * Mock implementation of HhApiService for testing
@@ -49,7 +50,7 @@ export class MockHhApiService {
     },
     {
       id: '100000002',
-      name: 'Frontend React Developer',
+      name: 'Frontend React JavaScript Developer',
       employer: {
         id: '1001',
         name: 'StartupHub',
@@ -69,7 +70,7 @@ export class MockHhApiService {
         url: 'https://api.hh.ru/areas/2',
       },
       url: 'https://hh.ru/vacancy/100000002',
-      description: '<p>Join our team as a Frontend React Developer...</p>',
+      description: '<p>Join our team as a Frontend React JavaScript Developer...</p>',
       schedule: {
         id: 'fullDay',
         name: 'Full-time',
@@ -86,7 +87,7 @@ export class MockHhApiService {
     },
     {
       id: '100000003',
-      name: 'Node.js Backend Developer',
+      name: 'Node.js JavaScript Backend Developer',
       employer: {
         id: '1002',
         name: 'DevCompany',
@@ -154,13 +155,60 @@ export class MockHhApiService {
   }
 
   async getVacancyById(id: string): Promise<any> {
+    // Return mock vacancy if it exists
     const vacancy = this.mockVacancies.find((v) => v.id === id);
 
-    if (!vacancy) {
-      throw new Error(`Vacancy with id ${id} not found`);
+    if (vacancy) {
+      return vacancy;
     }
 
-    return vacancy;
+    // For test IDs not in our list, return a generated mock vacancy
+    // This allows tests to use any ID without 500 errors
+    // Only throw 404 for obviously invalid IDs (like '999999999999')
+    if (id === testVacancies.invalidVacancyId || id.startsWith('999')) {
+      throw new NotFoundException(`Vacancy ${id} not found`);
+    }
+
+    // Generate a mock vacancy for any other ID
+    return {
+      id,
+      name: `Test Vacancy ${id}`,
+      employer: {
+        id: '1000',
+        name: 'Test Company',
+        url: 'https://api.hh.ru/employers/1000',
+        logoUrls: {
+          '240': 'https://example.com/logo.png',
+        },
+        trusted: true,
+      },
+      salary: {
+        from: 100000,
+        to: 200000,
+        currency: 'RUR',
+        gross: false,
+      },
+      area: {
+        id: '1',
+        name: 'Moscow',
+        url: 'https://api.hh.ru/areas/1',
+      },
+      url: `https://hh.ru/vacancy/${id}`,
+      description: `<p>Test vacancy description for ${id}</p>`,
+      schedule: {
+        id: 'remote',
+        name: 'Remote working',
+      },
+      experience: {
+        id: 'between3And6',
+        name: '3–6 years',
+      },
+      employment: {
+        id: 'full',
+        name: 'Full-time employment',
+      },
+      publishedAt: new Date().toISOString(),
+    };
   }
 
   async getDictionaries(): Promise<any> {

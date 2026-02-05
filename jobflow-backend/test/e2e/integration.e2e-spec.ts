@@ -41,13 +41,13 @@ describe('Integration - Full User Journey (e2e)', () => {
     cleanupHelper = new CleanupHelper(connection);
   });
 
+  beforeEach(async () => {
+    await cleanupHelper.cleanDatabase();
+  });
+
   afterAll(async () => {
     await cleanupHelper.cleanDatabase();
     await app.close();
-  });
-
-  afterEach(async () => {
-    await cleanupHelper.cleanDatabase();
   });
 
   describe('Complete Job Search Workflow', () => {

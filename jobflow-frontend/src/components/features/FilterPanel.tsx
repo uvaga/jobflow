@@ -18,7 +18,7 @@ import {
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import ClearIcon from '@mui/icons-material/Clear';
-import { VacancySearchParams } from '@/services/vacancyService';
+import type {VacancySearchParams} from '@/services/vacancyService';
 
 interface FilterPanelProps {
   onFilterChange: (filters: VacancySearchParams) => void;

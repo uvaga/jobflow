@@ -14,7 +14,8 @@
       "Bash(npm run type-check:*)",
       "Bash(timeout 10 npm run dev:*)",
       "Bash(npm run lint)",
-      "Bash(npm run lint:*)"
+      "Bash(npm run lint:*)",
+      "Bash(findstr:*)"
     ]
   }
 }

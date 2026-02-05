@@ -1,5 +1,5 @@
 import { apiClient } from '@/config/api';
-import { Vacancy, PaginatedResponse } from '@/types';
+import type {Vacancy, PaginatedResponse} from '@/types';
 
 export interface VacancySearchParams {
   query?: string;

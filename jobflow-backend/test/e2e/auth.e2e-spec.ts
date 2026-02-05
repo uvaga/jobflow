@@ -39,13 +39,13 @@ describe('Authentication (e2e)', () => {
     cleanupHelper = new CleanupHelper(connection);
   });
 
+  beforeEach(async () => {
+    await cleanupHelper.cleanDatabase();
+  });
+
   afterAll(async () => {
     await cleanupHelper.cleanDatabase();
     await app.close();
-  });
-
-  afterEach(async () => {
-    await cleanupHelper.cleanCollection('users');
   });
 
   describe('POST /api/v1/auth/register', () => {

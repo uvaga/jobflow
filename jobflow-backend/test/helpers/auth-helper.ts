@@ -33,15 +33,11 @@ export class AuthHelper {
     firstName: string;
     lastName: string;
   }) {
-    await this.registerUser(userData);
-    const loginResponse = await this.loginUser({
-      email: userData.email,
-      password: userData.password,
-    });
+    const registerResponse = await this.registerUser(userData);
 
     return {
-      token: loginResponse.accessToken,
-      user: loginResponse.user,
+      token: registerResponse.accessToken,
+      user: registerResponse.user,
     };
   }
 

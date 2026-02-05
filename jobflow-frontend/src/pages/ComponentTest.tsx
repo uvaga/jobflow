@@ -21,7 +21,7 @@ const mockVacancy: Vacancy = {
     name: 'Tech Corporation',
     url: 'https://techcorp.example.com',
     logoUrls: {
-      '90': 'https://via.placeholder.com/90',
+      '90': 'https://placehold.co/90x90/1976d2/white?text=TC',
     },
     trusted: true,
   },
