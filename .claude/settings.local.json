@@ -15,7 +15,14 @@
       "Bash(timeout 10 npm run dev:*)",
       "Bash(npm run lint)",
       "Bash(npm run lint:*)",
-      "Bash(findstr:*)"
+      "Bash(findstr:*)",
+      "Bash(timeout /t:*)",
+      "Bash(ping:*)",
+      "Bash(REFRESH_TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2OTg0OTUyOTE4MDQzYzI5ZDM2ZGY2ZWUiLCJlbWFpbCI6InRlc3RAZXhhbXBsZS5jb20iLCJpYXQiOjE3NzAyOTY2MjcsImV4cCI6MTc3MDkwMTQyN30.9lKEfV1fp6du7W6wADIYhXo_nIAnpbIezeB2dLLENhY\")",
+      "Bash(REFRESH_TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2OTg0OTUyOTE4MDQzYzI5ZDM2ZGY2ZWUiLCJlbWFpbCI6InRlc3RAZXhhbXBsZS5jb20iLCJpYXQiOjE3NzAyOTY3MDYsImV4cCI6MTc3MDkwMTUwNn0.ElKbTAYGeo0Ps0RXntMobP8fYq7SyPN-d1K9v0uCPfg\")",
+      "Bash(npm run dev:*)",
+      "Bash(netstat:*)",
+      "Bash(tee:*)"
     ]
   }
 }

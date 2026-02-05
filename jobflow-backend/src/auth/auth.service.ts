@@ -42,10 +42,36 @@ export class AuthService {
     return this.generateTokens(user);
   }
 
+  async refreshToken(userId: string) {
+    const user = await this.usersService.findById(userId);
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+    return this.generateTokens(user);
+  }
+
   private generateTokens(user: any) {
     const payload = { sub: user._id, email: user.email };
+
+    // Access token uses default JWT configuration from module
+    const accessToken = this.jwtService.sign(payload);
+
+    // Refresh token uses different secret and expiration
+    const refreshSecret =
+      this.configService.get<string>('jwt.refreshSecret') ||
+      'fallback-refresh-secret';
+    const refreshExpiresIn =
+      this.configService.get<string>('jwt.refreshExpiresIn') || '7d';
+
+    // Use type assertion to satisfy TypeScript
+    const refreshToken = this.jwtService.sign(payload, {
+      secret: refreshSecret,
+      expiresIn: refreshExpiresIn,
+    } as any);
+
     return {
-      accessToken: this.jwtService.sign(payload),
+      accessToken,
+      refreshToken,
       user: {
         id: user._id,
         email: user.email,

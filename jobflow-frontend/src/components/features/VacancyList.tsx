@@ -11,6 +11,8 @@ function VacancyList({
   isLoading = false,
   error = null,
   onVacancyClick,
+  onSave,
+  showSaveButton = true,
 }: VacancyListProps) {
   // Loading state
   if (isLoading) {
@@ -56,7 +58,13 @@ function VacancyList({
     <Grid container spacing={3}>
       {vacancies.map((vacancy) => (
         <Grid item key={vacancy._id} xs={12} sm={6} md={4}>
-          <VacancyCard vacancy={vacancy} onClick={onVacancyClick} />
+          <VacancyCard
+            vacancy={vacancy}
+            onClick={onVacancyClick}
+            showSaveButton={showSaveButton}
+            isSaved={(vacancy as any).isSaved}
+            onSave={onSave}
+          />
         </Grid>
       ))}
     </Grid>

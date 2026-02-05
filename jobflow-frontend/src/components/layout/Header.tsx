@@ -14,6 +14,7 @@ import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import WorkIcon from '@mui/icons-material/Work';
 import { useState } from 'react';
 import { useAuthStore } from '../../store/authStore';
+import { logout as logoutApi } from '../../services/authService';
 
 export default function Header() {
   const navigate = useNavigate();
@@ -28,10 +29,16 @@ export default function Header() {
     setAnchorEl(null);
   };
 
-  const handleLogout = () => {
-    logout();
-    handleClose();
-    void navigate('/login');
+  const handleLogout = async () => {
+    try {
+      await logoutApi();
+    } catch (error) {
+      console.error('Logout API call failed:', error);
+    } finally {
+      logout();
+      handleClose();
+      void navigate('/login');
+    }
   };
 
   return (

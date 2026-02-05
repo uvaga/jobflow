@@ -45,6 +45,8 @@ export interface VacancyListProps {
   isLoading?: boolean;
   error?: Error | null;
   onVacancyClick?: (vacancyId: string) => void;
+  onSave?: (vacancyId: string) => void;
+  showSaveButton?: boolean;
 }
 
 export interface VacancyCardProps {
