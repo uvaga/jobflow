@@ -27,7 +27,7 @@ export const searchVacancies = async (
   params: VacancySearchParams,
 ): Promise<PaginatedResponse<Vacancy>> => {
   const response = await apiClient.get<PaginatedResponse<Vacancy>>(
-    '/vacancies',
+    '/vacancies/search',
     {
       params,
     },

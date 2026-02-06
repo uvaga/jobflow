@@ -1,22 +1,20 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useNavigate, Link as RouterLink } from 'react-router-dom';
-import { Formik, Form, Field } from 'formik';
+import { Formik, Form } from 'formik';
 import * as Yup from 'yup';
-import {
-  Box,
-  Container,
-  Typography,
-  Paper,
-  TextField,
-  Button,
-  Link,
-  Alert,
-  CircularProgress,
-  Grid,
-} from '@mui/material';
+import Box from '@mui/material/Box';
+import Container from '@mui/material/Container';
+import Typography from '@mui/material/Typography';
+import Paper from '@mui/material/Paper';
+import Button from '@mui/material/Button';
+import Link from '@mui/material/Link';
+import Alert from '@mui/material/Alert';
+import CircularProgress from '@mui/material/CircularProgress';
+import Grid from '@mui/material/Grid';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import { useAuthStore } from '@/store/authStore';
 import { register } from '@/services/authService';
+import FormTextField from '@/components/common/FormTextField';
 
 const registerSchema = Yup.object({
   email: Yup.string().email('Invalid email address').required('Email is required'),
@@ -38,6 +36,14 @@ const registerSchema = Yup.object({
     .required('Last name is required'),
 });
 
+const initialValues = {
+  email: '',
+  password: '',
+  confirmPassword: '',
+  firstName: '',
+  lastName: '',
+};
+
 interface RegisterFormValues {
   email: string;
   password: string;
@@ -51,7 +57,7 @@ export default function Register() {
   const loginUser = useAuthStore((state) => state.login);
   const [error, setError] = useState<string>('');
 
-  const handleSubmit = async (values: RegisterFormValues) => {
+  const handleSubmit = useCallback(async (values: RegisterFormValues) => {
     try {
       setError('');
       const { confirmPassword, ...registerData } = values;
@@ -68,7 +74,7 @@ export default function Register() {
       const errorMessage = err instanceof Error ? err.message : 'Registration failed. Please try again.';
       setError(errorMessage);
     }
-  };
+  }, [loginUser, navigate]);
 
   return (
     <Container maxWidth="sm">
@@ -103,95 +109,24 @@ export default function Register() {
           )}
 
           <Formik
-            initialValues={{
-              email: '',
-              password: '',
-              confirmPassword: '',
-              firstName: '',
-              lastName: '',
-            }}
+            initialValues={initialValues}
             validationSchema={registerSchema}
             onSubmit={handleSubmit}
           >
-            {({ errors, touched, isSubmitting }) => (
+            {({ isSubmitting }) => (
               <Form>
                 <Grid container spacing={2}>
-                  <Grid item xs={12} sm={6}>
-                    <Field name="firstName">
-                      {({ field }: { field: { name: string; value: string; onChange: (e: React.ChangeEvent) => void; onBlur: (e: React.FocusEvent) => void } }) => (
-                        <TextField
-                          {...field}
-                          fullWidth
-                          label="First Name"
-                          margin="normal"
-                          error={touched.firstName && Boolean(errors.firstName)}
-                          helperText={touched.firstName && errors.firstName}
-                          disabled={isSubmitting}
-                        />
-                      )}
-                    </Field>
+                  <Grid size={{ xs: 12, sm: 6 }}>
+                    <FormTextField name="firstName" label="First Name" disabled={isSubmitting} />
                   </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <Field name="lastName">
-                      {({ field }: { field: { name: string; value: string; onChange: (e: React.ChangeEvent) => void; onBlur: (e: React.FocusEvent) => void } }) => (
-                        <TextField
-                          {...field}
-                          fullWidth
-                          label="Last Name"
-                          margin="normal"
-                          error={touched.lastName && Boolean(errors.lastName)}
-                          helperText={touched.lastName && errors.lastName}
-                          disabled={isSubmitting}
-                        />
-                      )}
-                    </Field>
+                  <Grid size={{ xs: 12, sm: 6 }}>
+                    <FormTextField name="lastName" label="Last Name" disabled={isSubmitting} />
                   </Grid>
                 </Grid>
 
-                <Field name="email">
-                  {({ field }: { field: { name: string; value: string; onChange: (e: React.ChangeEvent) => void; onBlur: (e: React.FocusEvent) => void } }) => (
-                    <TextField
-                      {...field}
-                      fullWidth
-                      label="Email Address"
-                      type="email"
-                      margin="normal"
-                      error={touched.email && Boolean(errors.email)}
-                      helperText={touched.email && errors.email}
-                      disabled={isSubmitting}
-                    />
-                  )}
-                </Field>
-
-                <Field name="password">
-                  {({ field }: { field: { name: string; value: string; onChange: (e: React.ChangeEvent) => void; onBlur: (e: React.FocusEvent) => void } }) => (
-                    <TextField
-                      {...field}
-                      fullWidth
-                      label="Password"
-                      type="password"
-                      margin="normal"
-                      error={touched.password && Boolean(errors.password)}
-                      helperText={touched.password && errors.password}
-                      disabled={isSubmitting}
-                    />
-                  )}
-                </Field>
-
-                <Field name="confirmPassword">
-                  {({ field }: { field: { name: string; value: string; onChange: (e: React.ChangeEvent) => void; onBlur: (e: React.FocusEvent) => void } }) => (
-                    <TextField
-                      {...field}
-                      fullWidth
-                      label="Confirm Password"
-                      type="password"
-                      margin="normal"
-                      error={touched.confirmPassword && Boolean(errors.confirmPassword)}
-                      helperText={touched.confirmPassword && errors.confirmPassword}
-                      disabled={isSubmitting}
-                    />
-                  )}
-                </Field>
+                <FormTextField name="email" label="Email Address" type="email" disabled={isSubmitting} />
+                <FormTextField name="password" label="Password" type="password" disabled={isSubmitting} />
+                <FormTextField name="confirmPassword" label="Confirm Password" type="password" disabled={isSubmitting} />
 
                 <Button
                   type="submit"

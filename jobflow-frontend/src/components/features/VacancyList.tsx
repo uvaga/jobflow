@@ -1,10 +1,51 @@
 import { memo } from 'react';
 import { Grid, Box, Typography } from '@mui/material';
-import type { VacancyListProps } from '@/types';
 import VacancyCard from './VacancyCard';
 import LoadingSpinner from '@/components/common/LoadingSpinner';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
 import WorkOffIcon from '@mui/icons-material/WorkOff';
+
+// Generic vacancy type for the list
+interface VacancyItem {
+  id?: string;
+  _id?: string;
+  name: string;
+  employer: {
+    id: string;
+    name: string;
+    url?: string;
+    logo_urls?: Record<string, string> | null;
+    logoUrls?: Record<string, string>;
+    trusted: boolean;
+  };
+  salary?: {
+    from?: number | null;
+    to?: number | null;
+    currency: string;
+    gross?: boolean;
+  } | null;
+  area: {
+    id: string;
+    name: string;
+    url: string;
+  };
+  url: string;
+  schedule?: { id: string; name: string };
+  experience?: { id: string; name: string };
+  employment?: { id: string; name: string };
+  published_at?: string;
+  publishedAt?: string;
+  isSaved?: boolean;
+}
+
+interface VacancyListProps {
+  vacancies: VacancyItem[];
+  isLoading?: boolean;
+  error?: Error | null;
+  onVacancyClick?: (vacancyId: string) => void;
+  onSave?: (vacancyId: string) => void;
+  showSaveButton?: boolean;
+}
 
 function VacancyList({
   vacancies,
@@ -14,12 +55,10 @@ function VacancyList({
   onSave,
   showSaveButton = true,
 }: VacancyListProps) {
-  // Loading state
   if (isLoading) {
     return <LoadingSpinner message="Loading vacancies..." />;
   }
 
-  // Error state
   if (error) {
     return (
       <ErrorDisplay
@@ -29,7 +68,6 @@ function VacancyList({
     );
   }
 
-  // Empty state
   if (!vacancies || vacancies.length === 0) {
     return (
       <Box
@@ -53,16 +91,15 @@ function VacancyList({
     );
   }
 
-  // Render vacancy cards in a responsive grid
   return (
     <Grid container spacing={3}>
       {vacancies.map((vacancy) => (
-        <Grid item key={vacancy._id} xs={12} sm={6} md={4}>
+        <Grid key={vacancy.id || vacancy._id} size={{ xs: 12, sm: 6, md: 4 }}>
           <VacancyCard
             vacancy={vacancy}
             onClick={onVacancyClick}
             showSaveButton={showSaveButton}
-            isSaved={(vacancy as any).isSaved}
+            isSaved={vacancy.isSaved}
             onSave={onSave}
           />
         </Grid>
@@ -71,6 +108,4 @@ function VacancyList({
   );
 }
 
-// Memoize to prevent unnecessary re-renders when parent re-renders
-// Component only re-renders when props change (rerender-memo)
 export default memo(VacancyList);

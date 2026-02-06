@@ -20,3 +20,6 @@ docker/mongo-data/
 # OS
 .DS_Store
 Thumbs.db
+
+#MCP temp files
+.playwright-mcp

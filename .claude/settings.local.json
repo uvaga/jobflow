@@ -22,7 +22,16 @@
       "Bash(REFRESH_TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2OTg0OTUyOTE4MDQzYzI5ZDM2ZGY2ZWUiLCJlbWFpbCI6InRlc3RAZXhhbXBsZS5jb20iLCJpYXQiOjE3NzAyOTY3MDYsImV4cCI6MTc3MDkwMTUwNn0.ElKbTAYGeo0Ps0RXntMobP8fYq7SyPN-d1K9v0uCPfg\")",
       "Bash(npm run dev:*)",
       "Bash(netstat:*)",
-      "Bash(tee:*)"
+      "Bash(tee:*)",
+      "mcp__playwright__browser_wait_for",
+      "mcp__playwright__browser_navigate",
+      "mcp__playwright__browser_type",
+      "mcp__playwright__browser_snapshot",
+      "mcp__playwright__browser_evaluate",
+      "mcp__playwright__browser_console_messages",
+      "mcp__playwright__browser_click",
+      "Bash(npx tsc:*)",
+      "mcp__playwright__browser_take_screenshot"
     ]
   }
 }

@@ -159,7 +159,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
 **Public Routes**:
 - `/` - Home (landing page)
-- `/search` - Vacancy search with filters
+- `/search` - Vacancy search with filters (save button only shown for authenticated users)
 - `/vacancy/:id` - Vacancy detail (placeholder)
 - `/login` - Login form
 - `/register` - Registration form
@@ -214,24 +214,27 @@ export const refreshToken = async (): Promise<AuthResponse> => {
 
 **Vacancy Service** (vacancyService.ts):
 ```typescript
+// NOTE: Services return response.data (wrapped in { data: {...} })
+// Components must access the inner .data property (e.g., data?.data for vacancies)
+
 export const searchVacancies = async (
   params: VacancySearchParams
 ): Promise<PaginatedResponse<Vacancy>> => {
-  const response = await api.get('/vacancies/search', { params });
-  return response.data.data;
+  const response = await apiClient.get('/vacancies/search', { params });
+  return response.data; // Returns { data: [...], total, page, ... }
 };
 
 export const fetchSavedVacancies = async (): Promise<Vacancy[]> => {
-  const response = await api.get('/users/me/vacancies');
-  return response.data.data;
+  const response = await apiClient.get('/users/me/vacancies');
+  return response.data.vacancies; // Backend returns { vacancies: [...] }
 };
 
 export const addVacancy = async (vacancyId: string): Promise<void> => {
-  await api.post(`/users/me/vacancies/${vacancyId}`);
+  await apiClient.post(`/users/me/vacancies/${vacancyId}`);
 };
 
 export const removeVacancy = async (vacancyId: string): Promise<void> => {
-  await api.delete(`/users/me/vacancies/${vacancyId}`);
+  await apiClient.delete(`/users/me/vacancies/${vacancyId}`);
 };
 ```
 

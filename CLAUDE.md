@@ -135,7 +135,9 @@ docker exec -it jobflow-mongodb mongosh -u jobflow_user -p jobflow_dev_password 
 **Frontend Pages**:
 - **Home**: Landing page
 - **Login/Register**: Formik + Yup validation forms with error handling
-- **Search**: Main vacancy search with filters, pagination, responsive design
+- **Search**: Main vacancy search with filters, pagination, full-width responsive design
+  - Public page - accessible without authentication
+  - Save button only visible for authenticated users
   - Filter panel (accordion-based): Salary, Experience, Schedule, Employment
   - Vacancy cards in responsive grid (1/2/3 columns)
   - Debounced search input (500ms)

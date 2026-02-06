@@ -18,14 +18,14 @@ import {
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import ClearIcon from '@mui/icons-material/Clear';
-import type {VacancySearchParams} from '@/services/vacancyService';
+import type { HhSearchParams } from '@/services/hhApiService';
 
 interface FilterPanelProps {
-  onFilterChange: (filters: VacancySearchParams) => void;
-  initialFilters?: VacancySearchParams;
+  onFilterChange: (filters: HhSearchParams) => void;
+  initialFilters?: HhSearchParams;
 }
 
-// Mock data - will be replaced with API data in Sprint 2
+// hh.ru experience options (from /dictionaries)
 const EXPERIENCE_OPTIONS = [
   { id: 'noExperience', name: 'No experience' },
   { id: 'between1And3', name: '1-3 years' },
@@ -33,6 +33,7 @@ const EXPERIENCE_OPTIONS = [
   { id: 'moreThan6', name: 'More than 6 years' },
 ];
 
+// hh.ru schedule options (from /dictionaries)
 const SCHEDULE_OPTIONS = [
   { id: 'fullDay', name: 'Full-time' },
   { id: 'shift', name: 'Shift work' },
@@ -40,6 +41,7 @@ const SCHEDULE_OPTIONS = [
   { id: 'remote', name: 'Remote' },
 ];
 
+// hh.ru employment options (from /dictionaries)
 const EMPLOYMENT_OPTIONS = [
   { id: 'full', name: 'Full employment' },
   { id: 'part', name: 'Part-time' },
@@ -52,32 +54,22 @@ export default function FilterPanel({
   onFilterChange,
   initialFilters = {},
 }: FilterPanelProps) {
-  const [filters, setFilters] = useState<VacancySearchParams>(initialFilters);
-  const [activeFilterCount, setActiveFilterCount] = useState(0);
+  const [filters, setFilters] = useState<HhSearchParams>(initialFilters);
 
   // Count active filters
-  const countActiveFilters = useCallback(
-    (filterObj: VacancySearchParams): number => {
-      let count = 0;
-      if (filterObj.salaryFrom) count++;
-      if (filterObj.experienceId) count++;
-      if (filterObj.scheduleId) count++;
-      if (filterObj.employmentId) count++;
-      if (filterObj.areaId) count++;
-      return count;
-    },
-    [],
-  );
+  const activeFilterCount = [
+    filters.salary,
+    filters.experience,
+    filters.schedule,
+    filters.employment,
+    filters.only_with_salary,
+  ].filter(Boolean).length;
 
   const handleFilterChange = useCallback(
-    (field: keyof VacancySearchParams, value: string | number | undefined) => {
-      setFilters((prev) => {
-        const updated = { ...prev, [field]: value };
-        setActiveFilterCount(countActiveFilters(updated));
-        return updated;
-      });
+    (field: keyof HhSearchParams, value: string | number | boolean | undefined) => {
+      setFilters((prev) => ({ ...prev, [field]: value }));
     },
-    [countActiveFilters],
+    []
   );
 
   const handleApplyFilters = useCallback(() => {
@@ -85,22 +77,14 @@ export default function FilterPanel({
   }, [filters, onFilterChange]);
 
   const handleClearFilters = useCallback(() => {
-    const cleared: VacancySearchParams = {};
+    const cleared: HhSearchParams = { page: 0, per_page: 20 };
     setFilters(cleared);
-    setActiveFilterCount(0);
     onFilterChange(cleared);
   }, [onFilterChange]);
 
   return (
     <Paper elevation={2} sx={{ p: 2 }}>
-      <Box
-        sx={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          mb: 2,
-        }}
-      >
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <FilterListIcon color="primary" />
           <Typography variant="h6">Filters</Typography>
@@ -109,11 +93,7 @@ export default function FilterPanel({
           )}
         </Box>
         {activeFilterCount > 0 && (
-          <Button
-            size="small"
-            startIcon={<ClearIcon />}
-            onClick={handleClearFilters}
-          >
+          <Button size="small" startIcon={<ClearIcon />} onClick={handleClearFilters}>
             Clear All
           </Button>
         )}
@@ -130,14 +110,11 @@ export default function FilterPanel({
               fullWidth
               type="number"
               label="Minimum Salary"
-              value={filters.salaryFrom || ''}
+              value={filters.salary || ''}
               onChange={(e) =>
-                handleFilterChange(
-                  'salaryFrom',
-                  e.target.value ? Number(e.target.value) : undefined,
-                )
+                handleFilterChange('salary', e.target.value ? Number(e.target.value) : undefined)
               }
-              InputProps={{ inputProps: { min: 0, step: 1000 } }}
+              InputProps={{ inputProps: { min: 0, step: 10000 } }}
             />
           </AccordionDetails>
         </Accordion>
@@ -151,22 +128,15 @@ export default function FilterPanel({
             <FormControl fullWidth>
               <InputLabel>Experience Level</InputLabel>
               <Select
-                value={filters.experienceId || ''}
+                value={filters.experience || ''}
                 label="Experience Level"
                 onChange={(e) =>
-                  handleFilterChange(
-                    'experienceId',
-                    e.target.value || undefined,
-                  )
+                  handleFilterChange('experience', e.target.value || undefined)
                 }
               >
-                <MenuItem value="">
-                  <em>Any</em>
-                </MenuItem>
+                <MenuItem value=""><em>Any</em></MenuItem>
                 {EXPERIENCE_OPTIONS.map((option) => (
-                  <MenuItem key={option.id} value={option.id}>
-                    {option.name}
-                  </MenuItem>
+                  <MenuItem key={option.id} value={option.id}>{option.name}</MenuItem>
                 ))}
               </Select>
             </FormControl>
@@ -182,19 +152,15 @@ export default function FilterPanel({
             <FormControl fullWidth>
               <InputLabel>Work Schedule</InputLabel>
               <Select
-                value={filters.scheduleId || ''}
+                value={filters.schedule || ''}
                 label="Work Schedule"
                 onChange={(e) =>
-                  handleFilterChange('scheduleId', e.target.value || undefined)
+                  handleFilterChange('schedule', e.target.value || undefined)
                 }
               >
-                <MenuItem value="">
-                  <em>Any</em>
-                </MenuItem>
+                <MenuItem value=""><em>Any</em></MenuItem>
                 {SCHEDULE_OPTIONS.map((option) => (
-                  <MenuItem key={option.id} value={option.id}>
-                    {option.name}
-                  </MenuItem>
+                  <MenuItem key={option.id} value={option.id}>{option.name}</MenuItem>
                 ))}
               </Select>
             </FormControl>
@@ -210,22 +176,15 @@ export default function FilterPanel({
             <FormControl fullWidth>
               <InputLabel>Employment</InputLabel>
               <Select
-                value={filters.employmentId || ''}
+                value={filters.employment || ''}
                 label="Employment"
                 onChange={(e) =>
-                  handleFilterChange(
-                    'employmentId',
-                    e.target.value || undefined,
-                  )
+                  handleFilterChange('employment', e.target.value || undefined)
                 }
               >
-                <MenuItem value="">
-                  <em>Any</em>
-                </MenuItem>
+                <MenuItem value=""><em>Any</em></MenuItem>
                 {EMPLOYMENT_OPTIONS.map((option) => (
-                  <MenuItem key={option.id} value={option.id}>
-                    {option.name}
-                  </MenuItem>
+                  <MenuItem key={option.id} value={option.id}>{option.name}</MenuItem>
                 ))}
               </Select>
             </FormControl>

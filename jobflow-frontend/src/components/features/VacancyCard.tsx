@@ -17,15 +17,59 @@ import BusinessIcon from '@mui/icons-material/Business';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
 import WorkIcon from '@mui/icons-material/Work';
 import ScheduleIcon from '@mui/icons-material/Schedule';
-import type { VacancyCardProps } from '@/types';
+
+// Vacancy type that supports both hh.ru API and MongoDB formats
+interface VacancyCardVacancy {
+  id?: string;
+  _id?: string;
+  name: string;
+  employer: {
+    id: string;
+    name: string;
+    url?: string;
+    logo_urls?: Record<string, string> | null;
+    logoUrls?: Record<string, string>;
+    trusted: boolean;
+  };
+  salary?: {
+    from?: number | null;
+    to?: number | null;
+    currency: string;
+    gross?: boolean;
+  } | null;
+  area: {
+    id: string;
+    name: string;
+    url: string;
+  };
+  url: string;
+  schedule?: {
+    id: string;
+    name: string;
+  };
+  experience?: {
+    id: string;
+    name: string;
+  };
+  employment?: {
+    id: string;
+    name: string;
+  };
+  published_at?: string;
+  publishedAt?: string;
+  isSaved?: boolean;
+}
+
+interface VacancyCardProps {
+  vacancy: VacancyCardVacancy;
+  onClick?: (vacancyId: string) => void;
+  showSaveButton?: boolean;
+  isSaved?: boolean;
+  onSave?: (vacancyId: string) => void;
+}
 
 // Format salary display
-function formatSalary(salary?: {
-  from?: number;
-  to?: number;
-  currency: string;
-  gross?: boolean;
-}): string {
+function formatSalary(salary?: VacancyCardVacancy['salary']): string {
   if (!salary) return 'Salary not specified';
 
   const { from, to, currency, gross } = salary;
@@ -44,7 +88,9 @@ function formatSalary(salary?: {
 }
 
 // Format date display
-function formatDate(dateString: string): string {
+function formatDate(dateString?: string): string {
+  if (!dateString) return '';
+
   const date = new Date(dateString);
   const now = new Date();
   const diffTime = Math.abs(now.getTime() - date.getTime());
@@ -68,25 +114,30 @@ function VacancyCard({
   isSaved = false,
   onSave,
 }: VacancyCardProps) {
-  // Use callback to avoid recreating function on each render (rerender-functional-setstate)
+  // Support both id and _id
+  const vacancyId = vacancy.id || vacancy._id || '';
+
+  // Support both published_at and publishedAt
+  const publishedDate = vacancy.published_at || vacancy.publishedAt;
+
+  // Support both logo_urls and logoUrls
+  const logoUrl = vacancy.employer.logo_urls?.['90'] || vacancy.employer.logoUrls?.['90'];
+
   const handleCardClick = useCallback(() => {
-    if (onClick) {
-      onClick(vacancy._id);
-    }
-  }, [onClick, vacancy._id]);
+    if (onClick) onClick(vacancyId);
+  }, [onClick, vacancyId]);
 
   const handleSaveClick = useCallback(
     (e: React.MouseEvent) => {
-      e.stopPropagation(); // Prevent card click
-      if (onSave) {
-        onSave(vacancy._id);
-      }
+      e.stopPropagation();
+      if (onSave) onSave(vacancyId);
     },
-    [onSave, vacancy._id],
+    [onSave, vacancyId]
   );
 
   const salaryText = formatSalary(vacancy.salary);
-  const publishedText = formatDate(vacancy.publishedAt);
+  const publishedText = formatDate(publishedDate);
+  const savedState = vacancy.isSaved ?? isSaved;
 
   return (
     <Card
@@ -96,25 +147,13 @@ function VacancyCard({
         flexDirection: 'column',
         cursor: onClick ? 'pointer' : 'default',
         transition: 'transform 0.2s, box-shadow 0.2s',
-        '&:hover': onClick
-          ? {
-              transform: 'translateY(-4px)',
-              boxShadow: 4,
-            }
-          : {},
+        '&:hover': onClick ? { transform: 'translateY(-4px)', boxShadow: 4 } : {},
       }}
       onClick={handleCardClick}
     >
       <CardContent sx={{ flexGrow: 1, pb: 1 }}>
         {/* Header: Title and Save Button */}
-        <Box
-          sx={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'flex-start',
-            mb: 2,
-          }}
-        >
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
           <Typography variant="h6" component="h3" sx={{ flexGrow: 1, pr: 1 }}>
             {vacancy.name}
           </Typography>
@@ -122,22 +161,18 @@ function VacancyCard({
             <IconButton
               size="small"
               onClick={handleSaveClick}
-              color={isSaved ? 'primary' : 'default'}
-              aria-label={isSaved ? 'Remove from saved' : 'Save vacancy'}
+              color={savedState ? 'primary' : 'default'}
+              aria-label={savedState ? 'Remove from saved' : 'Save vacancy'}
             >
-              {isSaved ? <BookmarkIcon /> : <BookmarkBorderIcon />}
+              {savedState ? <BookmarkIcon /> : <BookmarkBorderIcon />}
             </IconButton>
           )}
         </Box>
 
         {/* Employer */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
-          {vacancy.employer.logoUrls?.['90'] ? (
-            <Avatar
-              src={vacancy.employer.logoUrls['90']}
-              alt={vacancy.employer.name}
-              sx={{ width: 32, height: 32 }}
-            >
+          {logoUrl ? (
+            <Avatar src={logoUrl} alt={vacancy.employer.name} sx={{ width: 32, height: 32 }}>
               <BusinessIcon />
             </Avatar>
           ) : (
@@ -150,12 +185,7 @@ function VacancyCard({
               {vacancy.employer.name}
             </Typography>
             {vacancy.employer.trusted && (
-              <Chip
-                label="Verified"
-                size="small"
-                color="success"
-                sx={{ height: 16, fontSize: '0.65rem' }}
-              />
+              <Chip label="Verified" size="small" color="success" sx={{ height: 16, fontSize: '0.65rem' }} />
             )}
           </Box>
         </Box>
@@ -169,7 +199,6 @@ function VacancyCard({
 
         {/* Details */}
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-          {/* Location */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <LocationOnIcon fontSize="small" color="action" />
             <Typography variant="body2" color="text.secondary">
@@ -177,7 +206,6 @@ function VacancyCard({
             </Typography>
           </Box>
 
-          {/* Experience */}
           {vacancy.experience && (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <WorkIcon fontSize="small" color="action" />
@@ -187,7 +215,6 @@ function VacancyCard({
             </Box>
           )}
 
-          {/* Schedule */}
           {vacancy.schedule && (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <ScheduleIcon fontSize="small" color="action" />
@@ -198,26 +225,16 @@ function VacancyCard({
           )}
         </Box>
 
-        {/* Employment Type */}
         {vacancy.employment && (
           <Box sx={{ mt: 2 }}>
-            <Chip
-              label={vacancy.employment.name}
-              size="small"
-              variant="outlined"
-            />
+            <Chip label={vacancy.employment.name} size="small" variant="outlined" />
           </Box>
         )}
       </CardContent>
 
-      {/* Footer */}
       <CardActions sx={{ px: 2, py: 1.5, bgcolor: 'grey.50' }}>
-        <Typography
-          variant="caption"
-          color="text.secondary"
-          sx={{ flexGrow: 1 }}
-        >
-          Published {publishedText}
+        <Typography variant="caption" color="text.secondary" sx={{ flexGrow: 1 }}>
+          {publishedText && `Published ${publishedText}`}
         </Typography>
         {onClick && (
           <Button size="small" variant="text">
@@ -229,6 +246,4 @@ function VacancyCard({
   );
 }
 
-// Memoize component to prevent unnecessary re-renders (rerender-memo)
-// Component only re-renders when props actually change
 export default memo(VacancyCard);

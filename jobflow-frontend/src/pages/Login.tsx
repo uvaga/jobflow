@@ -1,26 +1,26 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useNavigate, useLocation, Link as RouterLink } from 'react-router-dom';
-import { Formik, Form, Field } from 'formik';
+import { Formik, Form } from 'formik';
 import * as Yup from 'yup';
-import {
-  Box,
-  Container,
-  Typography,
-  Paper,
-  TextField,
-  Button,
-  Link,
-  Alert,
-  CircularProgress,
-} from '@mui/material';
+import Box from '@mui/material/Box';
+import Container from '@mui/material/Container';
+import Typography from '@mui/material/Typography';
+import Paper from '@mui/material/Paper';
+import Button from '@mui/material/Button';
+import Link from '@mui/material/Link';
+import Alert from '@mui/material/Alert';
+import CircularProgress from '@mui/material/CircularProgress';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import { useAuthStore } from '@/store/authStore';
 import { login } from '@/services/authService';
+import FormTextField from '@/components/common/FormTextField';
 
 const loginSchema = Yup.object({
   email: Yup.string().email('Invalid email address').required('Email is required'),
   password: Yup.string().required('Password is required'),
 });
+
+const initialValues = { email: '', password: '' };
 
 interface LoginFormValues {
   email: string;
@@ -35,7 +35,7 @@ export default function Login() {
 
   const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/';
 
-  const handleSubmit = async (values: LoginFormValues) => {
+  const handleSubmit = useCallback(async (values: LoginFormValues) => {
     try {
       setError('');
       const response = await login(values);
@@ -51,7 +51,7 @@ export default function Login() {
       const errorMessage = err instanceof Error ? err.message : 'Login failed. Please try again.';
       setError(errorMessage);
     }
-  };
+  }, [loginUser, navigate, from]);
 
   return (
     <Container maxWidth="sm">
@@ -86,41 +86,14 @@ export default function Login() {
           )}
 
           <Formik
-            initialValues={{ email: '', password: '' }}
+            initialValues={initialValues}
             validationSchema={loginSchema}
             onSubmit={handleSubmit}
           >
-            {({ errors, touched, isSubmitting }) => (
+            {({ isSubmitting }) => (
               <Form>
-                <Field name="email">
-                  {({ field }: { field: { name: string; value: string; onChange: (e: React.ChangeEvent) => void; onBlur: (e: React.FocusEvent) => void } }) => (
-                    <TextField
-                      {...field}
-                      fullWidth
-                      label="Email Address"
-                      type="email"
-                      margin="normal"
-                      error={touched.email && Boolean(errors.email)}
-                      helperText={touched.email && errors.email}
-                      disabled={isSubmitting}
-                    />
-                  )}
-                </Field>
-
-                <Field name="password">
-                  {({ field }: { field: { name: string; value: string; onChange: (e: React.ChangeEvent) => void; onBlur: (e: React.FocusEvent) => void } }) => (
-                    <TextField
-                      {...field}
-                      fullWidth
-                      label="Password"
-                      type="password"
-                      margin="normal"
-                      error={touched.password && Boolean(errors.password)}
-                      helperText={touched.password && errors.password}
-                      disabled={isSubmitting}
-                    />
-                  )}
-                </Field>
+                <FormTextField name="email" label="Email Address" type="email" disabled={isSubmitting} />
+                <FormTextField name="password" label="Password" type="password" disabled={isSubmitting} />
 
                 <Button
                   type="submit"

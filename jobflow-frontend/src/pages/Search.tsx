@@ -1,7 +1,6 @@
 import { useState, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Container,
   Box,
   Typography,
   Grid,
@@ -14,132 +13,104 @@ import {
 import FilterListIcon from '@mui/icons-material/FilterList';
 import CloseIcon from '@mui/icons-material/Close';
 
-// Components (bundle-barrel-imports: direct imports, not barrel files)
 import SearchBar from '@/components/common/SearchBar';
 import FilterPanel from '@/components/features/FilterPanel';
 import VacancyList from '@/components/features/VacancyList';
 import Pagination from '@/components/common/Pagination';
 
-// Hooks and services
 import { useDebounce } from '@/hooks/useDebounce';
-import { useVacancySearch, useSavedVacancies, useAddVacancy, useRemoveVacancy } from '@/hooks/useVacancies';
-import type { VacancySearchParams } from '@/services/vacancyService';
-import type { Vacancy } from '@/types';
+import { useHhVacancySearch } from '@/hooks/useHhApi';
+import { useSavedVacancies, useAddVacancy, useRemoveVacancy } from '@/hooks/useVacancies';
+import { useAuthStore } from '@/store/authStore';
+import type { HhSearchParams } from '@/services/hhApiService';
 
 export default function Search() {
   const theme = useTheme();
   const navigate = useNavigate();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
+  // Auth state - only logged-in users can save vacancies
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+
   // Local state
   const [searchText, setSearchText] = useState('');
-  const [filters, setFilters] = useState<VacancySearchParams>({ page: 1, limit: 20 });
+  const [filters, setFilters] = useState<HhSearchParams>({ page: 0, per_page: 20 });
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
 
-  // Debounce search text to reduce API calls while typing (useDebounce pattern)
+  // Debounce search text
   const debouncedSearchText = useDebounce(searchText, 500);
 
-  // Memoize search params to prevent unnecessary re-renders (rerender-dependencies: primitive deps)
-  const searchParams = useMemo<VacancySearchParams>(
+  // Build search params
+  const searchParams = useMemo<HhSearchParams>(
     () => ({
       ...filters,
-      query: debouncedSearchText || undefined,
+      text: debouncedSearchText || undefined,
     }),
     [filters, debouncedSearchText]
   );
 
-  // Fetch vacancies with React Query (client-swr-dedup: automatic deduplication)
-  const { data, isLoading, error } = useVacancySearch(searchParams);
+  // Fetch vacancies from hh.ru API directly
+  const { data, isLoading, error } = useHhVacancySearch(searchParams);
 
-  // Fetch saved vacancies to determine save state
-  const { data: savedVacancies } = useSavedVacancies();
-
-  // Mutations for save/unsave
+  // Fetch saved vacancies (for authenticated users only)
+  const { data: savedVacancies } = useSavedVacancies(isAuthenticated);
   const addVacancyMutation = useAddVacancy();
   const removeVacancyMutation = useRemoveVacancy();
 
-  // Create a Set for O(1) lookup of saved vacancy IDs (js-set-map-lookups)
+  // Set of saved vacancy IDs for O(1) lookup
   const savedVacancyIds = useMemo(() => {
     if (!savedVacancies) return new Set<string>();
-    return new Set(savedVacancies.map((v) => v._id));
+    return new Set(savedVacancies.map((v) => v.hhId || v._id));
   }, [savedVacancies]);
 
-  // Handler for search input change
-  // rerender-functional-setstate: stable callback with functional update
-  const handleSearchChange = useCallback((query: string) => {
-    setSearchText(query);
-    // Reset to page 1 when search text changes
-    setFilters((prev) => ({ ...prev, page: 1 }));
+  // Handlers
+  const handleSearchChange = useCallback((text: string) => {
+    setSearchText(text);
+    setFilters((prev) => ({ ...prev, page: 0 }));
   }, []);
 
-  // Handler for filter changes
-  const handleFilterChange = useCallback((newFilters: VacancySearchParams) => {
-    setFilters((prev) => ({
-      ...prev,
-      ...newFilters,
-      page: 1, // Reset to page 1 when filters change
-    }));
-    // Close drawer on mobile after applying filters
-    if (isMobile) {
-      setIsFilterDrawerOpen(false);
-    }
+  const handleFilterChange = useCallback((newFilters: HhSearchParams) => {
+    setFilters((prev) => ({ ...prev, ...newFilters, page: 0 }));
+    if (isMobile) setIsFilterDrawerOpen(false);
   }, [isMobile]);
 
-  // Handler for pagination
   const handlePageChange = useCallback((page: number) => {
-    // rerender-functional-setstate: use functional update
-    setFilters((prev) => ({ ...prev, page }));
-
-    // Scroll to top when page changes for better UX
+    // MUI Pagination is 1-indexed, hh.ru API is 0-indexed
+    setFilters((prev) => ({ ...prev, page: page - 1 }));
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
 
-  // Handler for vacancy card click - navigate to details
-  const handleVacancyClick = useCallback(
-    (vacancyId: string) => {
-      navigate(`/vacancy/${vacancyId}`);
-    },
-    [navigate]
-  );
+  const handleVacancyClick = useCallback((vacancyId: string) => {
+    navigate(`/vacancy/${vacancyId}`);
+  }, [navigate]);
 
-  // Handler for save/unsave vacancy with optimistic updates
-  const handleSaveToggle = useCallback(
-    (vacancyId: string) => {
-      const isSaved = savedVacancyIds.has(vacancyId);
+  const handleSaveToggle = useCallback((vacancyId: string) => {
+    if (savedVacancyIds.has(vacancyId)) {
+      removeVacancyMutation.mutate(vacancyId);
+    } else {
+      addVacancyMutation.mutate(vacancyId);
+    }
+  }, [savedVacancyIds, addVacancyMutation, removeVacancyMutation]);
 
-      if (isSaved) {
-        removeVacancyMutation.mutate(vacancyId);
-      } else {
-        addVacancyMutation.mutate(vacancyId);
-      }
-    },
-    [savedVacancyIds, addVacancyMutation, removeVacancyMutation]
-  );
+  // Extract data from hh.ru response
+  const vacancies = data?.items || [];
+  const totalPages = data?.pages || 0;
+  const currentPage = (data?.page || 0) + 1; // Convert to 1-indexed for UI
+  const totalItems = data?.found || 0;
+  const itemsPerPage = data?.per_page || 20;
 
-  // Drawer toggle handlers
-  const openFilterDrawer = useCallback(() => setIsFilterDrawerOpen(true), []);
-  const closeFilterDrawer = useCallback(() => setIsFilterDrawerOpen(false), []);
-
-  // Extract vacancies array from paginated response
-  const vacancies = data?.data || [];
-  const totalPages = data?.totalPages || 0;
-  const currentPage = data?.page || 1;
-  const totalItems = data?.total || 0;
-  const itemsPerPage = data?.limit || 20;
-
-  // Enhance vacancies with isSaved flag
-  // js-cache-property-access: cache savedVacancyIds lookup
+  // Add isSaved flag to vacancies
   const vacanciesWithSaveState = useMemo(
-    () =>
-      vacancies.map((vacancy) => ({
-        ...vacancy,
-        isSaved: savedVacancyIds.has(vacancy._id),
-      })),
+    () => vacancies.map((vacancy) => ({
+      ...vacancy,
+      _id: vacancy.id, // Add _id for compatibility
+      isSaved: savedVacancyIds.has(vacancy.id),
+    })),
     [vacancies, savedVacancyIds]
   );
 
   return (
-    <Container maxWidth="xl" sx={{ py: 3 }}>
+    <Box sx={{ py: 3, px: { xs: 2, sm: 3, md: 4 } }}>
       {/* Header */}
       <Box sx={{ mb: 3 }}>
         <Typography variant="h4" component="h1" gutterBottom>
@@ -164,7 +135,7 @@ export default function Search() {
       <Grid container spacing={3}>
         {/* Filter Panel - Desktop */}
         {!isMobile && (
-          <Grid item xs={12} md={3}>
+          <Grid size={{ xs: 12, md: 3 }}>
             <Box sx={{ position: 'sticky', top: 16 }}>
               <FilterPanel
                 onFilterChange={handleFilterChange}
@@ -175,21 +146,21 @@ export default function Search() {
         )}
 
         {/* Vacancy List */}
-        <Grid item xs={12} md={isMobile ? 12 : 9}>
+        <Grid size={{ xs: 12, md: isMobile ? 12 : 9 }}>
           <VacancyList
-            vacancies={vacanciesWithSaveState as Vacancy[]}
+            vacancies={vacanciesWithSaveState}
             isLoading={isLoading}
             error={error}
             onVacancyClick={handleVacancyClick}
             onSave={handleSaveToggle}
-            showSaveButton={true}
+            showSaveButton={isAuthenticated}
           />
 
           {/* Pagination */}
           {!isLoading && !error && vacancies.length > 0 && (
             <Pagination
               currentPage={currentPage}
-              totalPages={totalPages}
+              totalPages={Math.min(totalPages, 100)} // hh.ru limits to 100 pages
               onPageChange={handlePageChange}
               totalItems={totalItems}
               itemsPerPage={itemsPerPage}
@@ -202,43 +173,25 @@ export default function Search() {
       {/* Filter Drawer - Mobile */}
       {isMobile && (
         <>
-          {/* Floating Action Button to open filters */}
           <Fab
             color="primary"
             aria-label="filters"
-            onClick={openFilterDrawer}
-            sx={{
-              position: 'fixed',
-              bottom: 16,
-              right: 16,
-            }}
+            onClick={() => setIsFilterDrawerOpen(true)}
+            sx={{ position: 'fixed', bottom: 16, right: 16 }}
           >
             <FilterListIcon />
           </Fab>
 
-          {/* Drawer for filters */}
           <Drawer
             anchor="right"
             open={isFilterDrawerOpen}
-            onClose={closeFilterDrawer}
-            sx={{
-              '& .MuiDrawer-paper': {
-                width: '80%',
-                maxWidth: 360,
-              },
-            }}
+            onClose={() => setIsFilterDrawerOpen(false)}
+            sx={{ '& .MuiDrawer-paper': { width: '80%', maxWidth: 360 } }}
           >
             <Box sx={{ p: 2 }}>
-              <Box
-                sx={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  mb: 2,
-                }}
-              >
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                 <Typography variant="h6">Filters</Typography>
-                <IconButton onClick={closeFilterDrawer} aria-label="close">
+                <IconButton onClick={() => setIsFilterDrawerOpen(false)} aria-label="close">
                   <CloseIcon />
                 </IconButton>
               </Box>
@@ -250,6 +203,6 @@ export default function Search() {
           </Drawer>
         </>
       )}
-    </Container>
+    </Box>
   );
 }
