@@ -7,11 +7,13 @@ const HH_API_LOCALE = import.meta.env.VITE_HH_API_LOCALE || 'EN';
 export interface HhSearchParams {
   text?: string;
   area?: string;
+  industry?: string;
   salary?: number;
   only_with_salary?: boolean;
   experience?: string;
   employment?: string;
   schedule?: string;
+  professional_role?: string;
   page?: number;
   per_page?: number;
 }
@@ -21,6 +23,75 @@ interface HhNamedEntity {
   id: string;
   name: string;
 }
+
+// HH.ru Dictionaries Response
+export interface HhDictionaries {
+  employment: HhNamedEntity[];
+  schedule: HhNamedEntity[];
+  experience: HhNamedEntity[];
+  currency: Array<{
+    code: string;
+    abbr: string;
+    name: string;
+    rate: number;
+    default?: boolean;
+    in_use?: boolean;
+  }>;
+  gender?: HhNamedEntity[];
+  education_level?: HhNamedEntity[];
+  language_level?: HhNamedEntity[];
+  relocation_type?: HhNamedEntity[];
+  business_trip_readiness?: HhNamedEntity[];
+  driver_license_types?: Array<{ id: string }>;
+  travel_time?: HhNamedEntity[];
+  preferred_contact_type?: HhNamedEntity[];
+  resume_access_type?: HhNamedEntity[];
+  [key: string]: unknown; // Allow other dictionary fields
+}
+
+// HH.ru Area (hierarchical structure: countries → regions → cities)
+export interface HhAreaDetail {
+  id: string;
+  name: string;
+  parent_id?: string;
+  areas?: HhAreaDetail[]; // nested children
+  lat?: number;
+  lng?: number;
+  name_prepositional?: string; // e.g., "в Москве" (Russian locale)
+  utc_offset?: string; // e.g., "+03:00"
+}
+
+// HH.ru Professional Roles (from /professional_roles endpoint)
+export interface HhProfessionalRole {
+  id: string;
+  name: string;
+  accept_incomplete_resumes?: boolean;
+  is_default?: boolean;
+}
+
+export interface HhProfessionalRoleCategory {
+  id: string;
+  name: string;
+  roles: HhProfessionalRole[];
+}
+
+export interface HhProfessionalRolesResponse {
+  categories: HhProfessionalRoleCategory[];
+}
+
+// HH.ru Industry (hierarchical structure: categories → industries)
+export interface HhIndustryItem {
+  id: string;
+  name: string;
+}
+
+export interface HhIndustryCategory {
+  id: string;
+  name: string;
+  industries: HhIndustryItem[];
+}
+
+export type HhIndustriesResponse = HhIndustryCategory[];
 
 interface HhEmployer {
   id: string;
@@ -149,7 +220,99 @@ export const getHhVacancy = async (id: string): Promise<HhVacancyDetail> => {
 /**
  * Get hh.ru dictionaries (for filter options)
  */
-export const getHhDictionaries = async (): Promise<Record<string, unknown>> => {
-  const response = await hhApiClient.get('/dictionaries');
+export const getHhDictionaries = async (): Promise<HhDictionaries> => {
+  const response = await hhApiClient.get<HhDictionaries>('/dictionaries');
   return response.data;
+};
+
+/**
+ * Get countries list from hh.ru API
+ * Returns subset of areas that are countries
+ */
+export const getHhCountries = async (): Promise<HhAreaDetail[]> => {
+  const response = await hhApiClient.get<HhAreaDetail[]>('/areas/countries');
+  return response.data;
+};
+
+/**
+ * Get full areas hierarchy from hh.ru API
+ * Returns tree structure: countries → regions → cities
+ */
+export const getHhAreas = async (): Promise<HhAreaDetail[]> => {
+  const response = await hhApiClient.get<HhAreaDetail[]>('/areas');
+  return response.data;
+};
+
+/**
+ * Get specific area by ID
+ * Returns area with its children
+ */
+export const getHhAreaById = async (id: string): Promise<HhAreaDetail> => {
+  const response = await hhApiClient.get<HhAreaDetail>(`/areas/${id}`);
+  return response.data;
+};
+
+/**
+ * Get professional roles from hh.ru API (categories with roles)
+ * Used for professional role filtering in vacancy search
+ */
+export const getHhProfessionalRoles = async (): Promise<HhProfessionalRolesResponse> => {
+  const response = await hhApiClient.get<HhProfessionalRolesResponse>('/professional_roles');
+  return response.data;
+};
+
+/**
+ * Get industries from hh.ru API (categories with nested industries)
+ * Used for industry filtering in vacancy search
+ */
+export const getHhIndustries = async (): Promise<HhIndustriesResponse> => {
+  const response = await hhApiClient.get<HhIndustriesResponse>('/industries');
+  return response.data;
+};
+
+/**
+ * Flatten all professional roles into a single array with unique roles
+ * Useful for displaying all roles in a single dropdown
+ * Deduplicates roles by ID (some roles appear in multiple categories)
+ */
+export const flattenProfessionalRoles = (
+  response: HhProfessionalRolesResponse
+): HhProfessionalRole[] => {
+  const rolesMap = new Map<string, HhProfessionalRole>();
+
+  response.categories.forEach((category) => {
+    category.roles.forEach((role) => {
+      if (!rolesMap.has(role.id)) {
+        rolesMap.set(role.id, role);
+      }
+    });
+  });
+
+  // Convert Map values to array and sort by name for better UX
+  return Array.from(rolesMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+};
+
+/**
+ * Flatten all industries into a single array with unique industries
+ * Useful for displaying all industries in a single dropdown
+ * Deduplicates industries by ID and sorts alphabetically for better UX
+ */
+export const flattenIndustries = (
+  response: HhIndustriesResponse
+): HhIndustryItem[] => {
+  const industriesMap = new Map<string, HhIndustryItem>();
+
+  response.forEach((category) => {
+    // Add parent category as an industry option
+    industriesMap.set(category.id, { id: category.id, name: category.name });
+
+    // Add nested sub-industries
+    category.industries.forEach((industry) => {
+      if (!industriesMap.has(industry.id)) {
+        industriesMap.set(industry.id, industry);
+      }
+    });
+  });
+
+  return Array.from(industriesMap.values()).sort((a, b) => a.name.localeCompare(b.name));
 };

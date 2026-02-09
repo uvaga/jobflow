@@ -55,6 +55,7 @@ export default function Login() {
 
   return (
     <Container maxWidth="sm">
+      <title>Sign In - JobFlow</title>
       <Box
         sx={{
           minHeight: '80vh',

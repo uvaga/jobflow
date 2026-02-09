@@ -78,6 +78,7 @@ export default function Register() {
 
   return (
     <Container maxWidth="sm">
+      <title>Create Account - JobFlow</title>
       <Box
         sx={{
           minHeight: '80vh',

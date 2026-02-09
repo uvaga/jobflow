@@ -4,6 +4,7 @@ import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 export default function Profile() {
   return (
     <Container maxWidth="md">
+      <title>My Profile - JobFlow</title>
       <Box sx={{ py: 4 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
           <AccountCircleIcon color="primary" sx={{ fontSize: 40 }} />

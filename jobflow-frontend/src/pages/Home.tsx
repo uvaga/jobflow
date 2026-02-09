@@ -5,6 +5,7 @@ import SearchIcon from '@mui/icons-material/Search';
 export default function Home() {
   return (
     <Container maxWidth="lg">
+      <title>JobFlow - Find Your Dream Job</title>
       <Box
         sx={{
           minHeight: '80vh',

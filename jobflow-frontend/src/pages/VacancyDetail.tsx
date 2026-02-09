@@ -167,6 +167,7 @@ export default function VacancyDetail() {
 
   return (
     <Container maxWidth="lg">
+      <title>{`${vacancy.name} vacancy in ${vacancy.employer.name} - JobFlow`}</title>
       <Box sx={{ py: 3 }}>
         {/* Back button */}
         <Button

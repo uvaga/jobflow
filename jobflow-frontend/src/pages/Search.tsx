@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Box,
   Typography,
@@ -17,40 +17,74 @@ import SearchBar from '@/components/common/SearchBar';
 import FilterPanel from '@/components/features/FilterPanel';
 import VacancyList from '@/components/features/VacancyList';
 import Pagination from '@/components/common/Pagination';
+import LoadingSpinner from '@/components/common/LoadingSpinner';
 
-import { useDebounce } from '@/hooks/useDebounce';
 import { useHhVacancySearch } from '@/hooks/useHhApi';
 import { useSavedVacancies, useAddVacancy, useRemoveVacancy } from '@/hooks/useVacancies';
 import { useAuthStore } from '@/store/authStore';
 import type { HhSearchParams } from '@/services/hhApiService';
 
+// Parse URL search params into filters object
+function parseFiltersFromUrl(sp: URLSearchParams): HhSearchParams {
+  return {
+    page: sp.has('page') ? Number(sp.get('page')) : 0,
+    per_page: sp.has('per_page') ? Number(sp.get('per_page')) : 20,
+    area: sp.get('area') || undefined,
+    professional_role: sp.get('professional_role') || undefined,
+    salary: sp.has('salary') ? Number(sp.get('salary')) : undefined,
+    experience: sp.get('experience') || undefined,
+    schedule: sp.get('schedule') || undefined,
+    employment: sp.get('employment') || undefined,
+    only_with_salary: sp.get('only_with_salary') === 'true' || undefined,
+  };
+}
+
+// Build URL search params from state (omit defaults/empty values)
+function buildUrlParams(text: string, filters: HhSearchParams): URLSearchParams {
+  const params = new URLSearchParams();
+  if (text) params.set('text', text);
+  if (filters.area) params.set('area', filters.area);
+  if (filters.professional_role) params.set('professional_role', filters.professional_role);
+  if (filters.salary) params.set('salary', String(filters.salary));
+  if (filters.experience) params.set('experience', filters.experience);
+  if (filters.schedule) params.set('schedule', filters.schedule);
+  if (filters.employment) params.set('employment', filters.employment);
+  if (filters.only_with_salary) params.set('only_with_salary', 'true');
+  if (filters.page && filters.page > 0) params.set('page', String(filters.page));
+  if (filters.per_page && filters.per_page !== 20) params.set('per_page', String(filters.per_page));
+  return params;
+}
+
 export default function Search() {
   const theme = useTheme();
   const navigate = useNavigate();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const [searchParams, setSearchParams] = useSearchParams();
 
   // Auth state - only logged-in users can save vacancies
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
 
-  // Local state
-  const [searchText, setSearchText] = useState('');
-  const [filters, setFilters] = useState<HhSearchParams>({ page: 0, per_page: 20 });
+  // Derive filters from URL (single source of truth)
+  const filters = useMemo(() => parseFiltersFromUrl(searchParams), [searchParams]);
+
+  // Get search text from URL
+  const searchText = searchParams.get('text') || '';
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
 
-  // Debounce search text
-  const debouncedSearchText = useDebounce(searchText, 500);
-
-  // Build search params
-  const searchParams = useMemo<HhSearchParams>(
+  // Build search params for API call (only search if > 2 characters)
+  const apiSearchParams = useMemo<HhSearchParams>(
     () => ({
       ...filters,
-      text: debouncedSearchText || undefined,
+      text: searchText && searchText.length > 2 ? searchText : undefined,
     }),
-    [filters, debouncedSearchText]
+    [filters, searchText]
   );
 
+  // Only fetch if search text is empty or has more than 2 characters
+  const shouldSearch = !searchText || searchText.length > 2;
+
   // Fetch vacancies from hh.ru API directly
-  const { data, isLoading, error } = useHhVacancySearch(searchParams);
+  const { data, isLoading, isFetching, error } = useHhVacancySearch(apiSearchParams, shouldSearch);
 
   // Fetch saved vacancies (for authenticated users only)
   const { data: savedVacancies } = useSavedVacancies(isAuthenticated);
@@ -65,20 +99,23 @@ export default function Search() {
 
   // Handlers
   const handleSearchChange = useCallback((text: string) => {
-    setSearchText(text);
-    setFilters((prev) => ({ ...prev, page: 0 }));
-  }, []);
+    // Update URL directly (SearchBar handles debouncing)
+    const newFilters = { ...filters, page: 0 };
+    setSearchParams(buildUrlParams(text, newFilters), { replace: true });
+  }, [filters, setSearchParams]);
 
   const handleFilterChange = useCallback((newFilters: HhSearchParams) => {
-    setFilters((prev) => ({ ...prev, ...newFilters, page: 0 }));
+    const merged = { ...filters, ...newFilters, page: 0 };
+    setSearchParams(buildUrlParams(searchText, merged), { replace: true });
     if (isMobile) setIsFilterDrawerOpen(false);
-  }, [isMobile]);
+  }, [filters, searchText, setSearchParams, isMobile]);
 
   const handlePageChange = useCallback((page: number) => {
     // MUI Pagination is 1-indexed, hh.ru API is 0-indexed
-    setFilters((prev) => ({ ...prev, page: page - 1 }));
+    const newFilters = { ...filters, page: page - 1 };
+    setSearchParams(buildUrlParams(searchText, newFilters), { replace: true });
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, []);
+  }, [filters, searchText, setSearchParams]);
 
   const handleVacancyClick = useCallback((vacancyId: string) => {
     navigate(`/vacancy/${vacancyId}`);
@@ -111,6 +148,7 @@ export default function Search() {
 
   return (
     <Box sx={{ py: 3, px: { xs: 2, sm: 3, md: 4 } }}>
+      <title>Search Vacancies - JobFlow</title>
       {/* Header */}
       <Box sx={{ mb: 3 }}>
         <Typography variant="h4" component="h1" gutterBottom>
@@ -124,9 +162,9 @@ export default function Search() {
       {/* Search Bar */}
       <Box sx={{ mb: 3 }}>
         <SearchBar
-          onSearch={handleSearchChange}
+          value={searchText}
+          onChange={handleSearchChange}
           placeholder="Search for jobs, companies, or keywords..."
-          defaultValue={searchText}
           disabled={isLoading}
         />
       </Box>
@@ -147,6 +185,17 @@ export default function Search() {
 
         {/* Vacancy List */}
         <Grid size={{ xs: 12, md: isMobile ? 12 : 9 }}>
+          {/* Show refreshing indicator during background fetches */}
+          {isFetching && !isLoading && (
+            <Box sx={{ mb: 2 }}>
+              <LoadingSpinner
+                size={16}
+                message="Updating results..."
+                inline
+              />
+            </Box>
+          )}
+
           <VacancyList
             vacancies={vacanciesWithSaveState}
             isLoading={isLoading}

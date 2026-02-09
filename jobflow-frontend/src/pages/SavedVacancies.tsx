@@ -4,6 +4,7 @@ import BookmarkIcon from '@mui/icons-material/Bookmark';
 export default function SavedVacancies() {
   return (
     <Container maxWidth="lg">
+      <title>Saved Vacancies - JobFlow</title>
       <Box sx={{ py: 4 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
           <BookmarkIcon color="primary" />
