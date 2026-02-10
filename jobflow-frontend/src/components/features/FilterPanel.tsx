@@ -26,8 +26,8 @@ import type { HhSearchParams } from '@/services/hhApiService';
 import {
   useHhDictionaries,
   useHhCountries,
-  useRegionsByCountry,
-  useCitiesByRegion,
+  useHhRegionsByCountryId,
+  useHhCitiesByRegionId,
   useHhProfessionalRoles,
   useHhIndustries,
 } from '@/hooks/useHhApi';
@@ -47,15 +47,34 @@ function FilterPanel({
   const [selectedCountry, setSelectedCountry] = useState<string>('');
   const [selectedRegion, setSelectedRegion] = useState<string>('');
 
-  // Load dictionary data from HH.ru API
-  const { data: dictionaries, isLoading: isDictLoading } = useHhDictionaries();
-  const { data: countries, isLoading: isCountriesLoading } = useHhCountries();
-  const { data: professionalRoles, isLoading: isProfRolesLoading } = useHhProfessionalRoles();
-  const { data: industries, isLoading: isIndustriesLoading } = useHhIndustries();
+  // Track which accordions have been opened (for lazy-loading)
+  const [expandedAccordions, setExpandedAccordions] = useState<Set<string>>(new Set());
 
-  // Filtered data based on selections (cascading filters for location)
-  const regions = useRegionsByCountry(selectedCountry);
-  const cities = useCitiesByRegion(selectedRegion);
+  // Load dictionary data from HH.ru API (lazy-loaded on accordion open)
+  const { data: dictionaries, isLoading: isDictLoading } = useHhDictionaries(
+    expandedAccordions.has('experience') ||
+    expandedAccordions.has('schedule') ||
+    expandedAccordions.has('employment')
+  );
+  const { data: countries, isLoading: isCountriesLoading } = useHhCountries(
+    expandedAccordions.has('country')
+  );
+  const { data: professionalRoles, isLoading: isProfRolesLoading } = useHhProfessionalRoles(
+    expandedAccordions.has('professionalRole')
+  );
+  const { data: industries, isLoading: isIndustriesLoading } = useHhIndustries(
+    expandedAccordions.has('industry')
+  );
+
+  // Cascading location data (loaded based on user selections)
+  const { data: regions, isLoading: isRegionsLoading } = useHhRegionsByCountryId(
+    selectedCountry,
+    !!selectedCountry // Only load when country is selected
+  );
+  const { data: cities, isLoading: isCitiesLoading } = useHhCitiesByRegionId(
+    selectedRegion,
+    !!selectedRegion // Only load when region is selected
+  );
 
   // Dynamic options from dictionaries (replaces hardcoded constants)
   const experienceOptions = dictionaries?.experience || [];
@@ -98,6 +117,16 @@ function FilterPanel({
     onFilterChange(cleared);
   }, [onFilterChange]);
 
+  // Track accordion expansion for lazy-loading
+  const handleAccordionChange = useCallback(
+    (accordionName: string) => (_event: React.SyntheticEvent, isExpanded: boolean) => {
+      if (isExpanded) {
+        setExpandedAccordions((prev) => new Set(prev).add(accordionName));
+      }
+    },
+    []
+  );
+
   return (
     <Paper elevation={2} sx={{ p: 2 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
@@ -117,7 +146,7 @@ function FilterPanel({
 
       <Stack spacing={2}>
         {/* Country */}
-        <Accordion>
+        <Accordion onChange={handleAccordionChange('country')}>
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
             <Typography>Country</Typography>
             {selectedCountry && <Chip label="1" size="small" sx={{ ml: 1 }} />}
@@ -151,13 +180,13 @@ function FilterPanel({
         </Accordion>
 
         {/* Region */}
-        <Accordion disabled={!selectedCountry}>
+        <Accordion disabled={!selectedCountry} onChange={handleAccordionChange('region')}>
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
             <Typography>Region</Typography>
             {selectedRegion && <Chip label="1" size="small" sx={{ ml: 1 }} />}
           </AccordionSummary>
           <AccordionDetails>
-            <FormControl fullWidth disabled={!selectedCountry}>
+            <FormControl fullWidth disabled={!selectedCountry || isRegionsLoading}>
               <InputLabel>Select Region</InputLabel>
               <Select
                 value={selectedRegion}
@@ -167,18 +196,21 @@ function FilterPanel({
                   setSelectedRegion(regionId);
 
                   // Check if selected region has cities
-                  const selectedRegionData = regions.find(r => r.id === regionId);
+                  const selectedRegionData = regions?.find(r => r.id === regionId);
                   const hasCities = selectedRegionData?.areas && selectedRegionData.areas.length > 0;
 
                   // If no cities, use region ID as area (e.g., Minsk is both region and city)
                   // Otherwise, clear area and wait for city selection
                   handleFilterChange('area', hasCities ? undefined : regionId);
                 }}
+                startAdornment={
+                  isRegionsLoading ? <CircularProgress size={20} sx={{ mr: 1 }} /> : null
+                }
               >
                 <MenuItem value="">
                   <em>Any</em>
                 </MenuItem>
-                {regions.map((region) => (
+                {regions?.map((region) => (
                   <MenuItem key={region.id} value={region.id}>
                     {region.name}
                   </MenuItem>
@@ -189,7 +221,7 @@ function FilterPanel({
         </Accordion>
 
         {/* City */}
-        <Accordion disabled={!selectedRegion}>
+        <Accordion disabled={!selectedRegion} onChange={handleAccordionChange('city')}>
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
             <Typography>City</Typography>
             {filters.area && <Chip label="1" size="small" sx={{ ml: 1 }} />}
@@ -197,20 +229,43 @@ function FilterPanel({
           <AccordionDetails>
             <Autocomplete
               disabled={!selectedRegion}
-              options={cities}
+              loading={isRegionsLoading || isCitiesLoading}
+              options={cities || []}
               getOptionLabel={(option) => option.name}
-              value={cities.find((c) => c.id === filters.area) || null}
+              value={cities?.find((c) => c.id === filters.area) || null}
               onChange={(_, value) => {
                 handleFilterChange('area', value?.id);
               }}
-              renderInput={(params) => <TextField {...params} label="Select City" />}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Select City"
+                  InputProps={{
+                    ...params.InputProps,
+                    startAdornment: (
+                      <>
+                        {isCitiesLoading ? <CircularProgress size={20} sx={{ mr: 1 }} /> : null}
+                        {params.InputProps.startAdornment}
+                      </>
+                    ),
+                  }}
+                />
+              )}
               noOptionsText="No cities available"
+              filterOptions={(options, state) => {
+                // Limit to first 100 results for performance
+                if (!state.inputValue) return options.slice(0, 100);
+                const filtered = options.filter((option) =>
+                  option.name.toLowerCase().includes(state.inputValue.toLowerCase())
+                );
+                return filtered.slice(0, 100);
+              }}
             />
           </AccordionDetails>
         </Accordion>
 
         {/* Industry */}
-        <Accordion>
+        <Accordion onChange={handleAccordionChange('industry')}>
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
             <Typography>Industry</Typography>
             {filters.industry && <Chip label="1" size="small" sx={{ ml: 1 }} />}
@@ -242,12 +297,19 @@ function FilterPanel({
                 />
               )}
               noOptionsText="No industries available"
+              filterOptions={(options, state) => {
+                // Limit to first 100 results for performance
+                const filtered = options.filter((option) =>
+                  option.name.toLowerCase().includes(state.inputValue.toLowerCase())
+                );
+                return filtered.slice(0, 100);
+              }}
             />
           </AccordionDetails>
         </Accordion>
 
         {/* Professional Role */}
-        <Accordion>
+        <Accordion onChange={handleAccordionChange('professionalRole')}>
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
             <Typography>Professional Role</Typography>
             {filters.professional_role && <Chip label="1" size="small" sx={{ ml: 1 }} />}
@@ -279,12 +341,19 @@ function FilterPanel({
                 />
               )}
               noOptionsText="No roles available"
+              filterOptions={(options, state) => {
+                // Limit to first 100 results for performance
+                const filtered = options.filter((option) =>
+                  option.name.toLowerCase().includes(state.inputValue.toLowerCase())
+                );
+                return filtered.slice(0, 100);
+              }}
             />
           </AccordionDetails>
         </Accordion>
 
         {/* Salary */}
-        <Accordion>
+        <Accordion onChange={handleAccordionChange('salary')}>
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
             <Typography>Salary</Typography>
           </AccordionSummary>
@@ -317,7 +386,7 @@ function FilterPanel({
         </Accordion>
 
         {/* Experience */}
-        <Accordion>
+        <Accordion onChange={handleAccordionChange('experience')}>
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
             <Typography>Experience</Typography>
           </AccordionSummary>
@@ -348,7 +417,7 @@ function FilterPanel({
         </Accordion>
 
         {/* Schedule */}
-        <Accordion>
+        <Accordion onChange={handleAccordionChange('schedule')}>
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
             <Typography>Schedule</Typography>
           </AccordionSummary>
@@ -379,7 +448,7 @@ function FilterPanel({
         </Accordion>
 
         {/* Employment Type */}
-        <Accordion>
+        <Accordion onChange={handleAccordionChange('employment')}>
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
             <Typography>Employment Type</Typography>
           </AccordionSummary>

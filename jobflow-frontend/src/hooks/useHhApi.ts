@@ -1,11 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
-import { useMemo } from 'react';
 import {
   searchHhVacancies,
   getHhVacancy,
   getHhDictionaries,
   getHhCountries,
-  getHhAreas,
+  getHhAreaById,
   getHhProfessionalRoles,
   getHhIndustries,
   flattenProfessionalRoles,
@@ -28,8 +27,8 @@ export const hhApiKeys = {
   vacancyList: (params: HhSearchParams) => [...hhApiKeys.vacancies(), params] as const,
   vacancy: (id: string) => [...hhApiKeys.vacancies(), id] as const,
   dictionaries: () => [...hhApiKeys.all, 'dictionaries'] as const,
-  countries: () => [...hhApiKeys.all, 'countries'] as const,
   areas: () => [...hhApiKeys.all, 'areas'] as const,
+  countries: () => [...hhApiKeys.areas(), 'countries'] as const,
   professionalAreas: () => [...hhApiKeys.all, 'professional-areas'] as const,
   industries: () => [...hhApiKeys.all, 'industries'] as const,
 };
@@ -69,35 +68,67 @@ export function useHhVacancy(id: string | undefined, enabled = true) {
  * Hook to get HH.ru dictionaries (employment, schedule, experience, etc.)
  * Uses React Query in-memory cache
  */
-export function useHhDictionaries() {
+export function useHhDictionaries(enabled = true) {
   return useQuery<HhDictionaries, Error>({
     queryKey: hhApiKeys.dictionaries(),
     queryFn: () => getHhDictionaries(),
+    enabled,
     retry: 1,
+    staleTime: 1000 * 60 * 60, // 1 hour - dictionaries change rarely
+    gcTime: 1000 * 60 * 60 * 2, // 2 hours
   });
 }
 
 /**
- * Hook to get HH.ru countries list
- * Uses React Query in-memory cache
+ * Hook to get HH.ru countries list (lazy-loaded)
+ * Fetches from /areas/countries endpoint (lightweight)
  */
-export function useHhCountries() {
+export function useHhCountries(enabled = true) {
   return useQuery<HhAreaDetail[], Error>({
     queryKey: hhApiKeys.countries(),
     queryFn: () => getHhCountries(),
+    enabled,
     retry: 1,
+    staleTime: 1000 * 60 * 60, // 1 hour - countries change rarely
+    gcTime: 1000 * 60 * 60 * 2, // 2 hours
   });
 }
 
 /**
- * Hook to get HH.ru full areas hierarchy (countries → regions → cities)
- * Uses React Query in-memory cache
+ * Hook to get regions for a specific country (lazy-loaded)
+ * Fetches from /areas/{countryId} endpoint
  */
-export function useHhAreas() {
+export function useHhRegionsByCountryId(countryId: string | undefined, enabled = true) {
   return useQuery<HhAreaDetail[], Error>({
-    queryKey: hhApiKeys.areas(),
-    queryFn: () => getHhAreas(),
+    queryKey: [...hhApiKeys.areas(), 'country', countryId],
+    queryFn: async () => {
+      if (!countryId) return [];
+      const country = await getHhAreaById(countryId);
+      return country.areas || [];
+    },
+    enabled: enabled && !!countryId,
     retry: 1,
+    staleTime: 1000 * 60 * 60, // 1 hour
+    gcTime: 1000 * 60 * 60 * 2, // 2 hours
+  });
+}
+
+/**
+ * Hook to get cities for a specific region (lazy-loaded)
+ * Fetches from /areas/{regionId} endpoint
+ */
+export function useHhCitiesByRegionId(regionId: string | undefined, enabled = true) {
+  return useQuery<HhAreaDetail[], Error>({
+    queryKey: [...hhApiKeys.areas(), 'region', regionId],
+    queryFn: async () => {
+      if (!regionId) return [];
+      const region = await getHhAreaById(regionId);
+      return region.areas || [];
+    },
+    enabled: enabled && !!regionId,
+    retry: 1,
+    staleTime: 1000 * 60 * 60, // 1 hour
+    gcTime: 1000 * 60 * 60 * 2, // 2 hours
   });
 }
 
@@ -105,13 +136,14 @@ export function useHhAreas() {
  * Hook to get HH.ru professional roles (flattened list from all categories)
  * Uses React Query in-memory cache
  */
-export function useHhProfessionalRoles() {
+export function useHhProfessionalRoles(enabled = true) {
   return useQuery<HhProfessionalRole[], Error>({
     queryKey: hhApiKeys.professionalAreas(),
     queryFn: async () => {
       const response = await getHhProfessionalRoles();
       return flattenProfessionalRoles(response);
     },
+    enabled,
     retry: 1,
     staleTime: 1000 * 60 * 60, // 1 hour - roles change very rarely
     gcTime: 1000 * 60 * 60 * 2, // 2 hours
@@ -122,53 +154,20 @@ export function useHhProfessionalRoles() {
  * Hook to get HH.ru industries (flattened list from all categories)
  * Uses React Query in-memory cache
  */
-export function useHhIndustries() {
+export function useHhIndustries(enabled = true) {
   return useQuery<HhIndustryItem[], Error>({
     queryKey: hhApiKeys.industries(),
     queryFn: async () => {
       const response = await getHhIndustries();
       return flattenIndustries(response);
     },
+    enabled,
     retry: 1,
     staleTime: 1000 * 60 * 60, // 1 hour - industries change very rarely
     gcTime: 1000 * 60 * 60 * 2, // 2 hours
   });
 }
 
-/**
- * Utility hook: Get regions for selected country
- * Filters areas hierarchy to return only regions of the specified country
- */
-export function useRegionsByCountry(countryId?: string) {
-  const { data: areas } = useHhAreas();
-
-  return useMemo(() => {
-    if (!countryId || !areas) return [];
-    const country = areas.find((a) => a.id === countryId);
-    return country?.areas || [];
-  }, [areas, countryId]);
-}
-
-/**
- * Utility hook: Get cities for selected region
- * Flattens nested area structure to return cities in the specified region
- */
-export function useCitiesByRegion(regionId?: string) {
-  const { data: areas } = useHhAreas();
-
-  return useMemo(() => {
-    if (!regionId || !areas) return [];
-
-    // Find region in hierarchy (country → region)
-    for (const country of areas) {
-      if (!country.areas) continue;
-      const region = country.areas.find((r) => r.id === regionId);
-      if (region) {
-        return region.areas || [];
-      }
-    }
-    return [];
-  }, [areas, regionId]);
-}
-
-// Removed useSpecializationsByArea - no longer needed with flat professional roles list
+// Old utility hooks removed - replaced with direct API call hooks:
+// - useRegionsByCountry → useHhRegionsByCountryId
+// - useCitiesByRegion → useHhCitiesByRegionId

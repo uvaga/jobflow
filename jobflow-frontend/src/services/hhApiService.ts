@@ -226,20 +226,11 @@ export const getHhDictionaries = async (): Promise<HhDictionaries> => {
 };
 
 /**
- * Get countries list from hh.ru API
- * Returns subset of areas that are countries
+ * Get list of countries from hh.ru API
+ * Lightweight endpoint returning only country names and IDs
  */
 export const getHhCountries = async (): Promise<HhAreaDetail[]> => {
   const response = await hhApiClient.get<HhAreaDetail[]>('/areas/countries');
-  return response.data;
-};
-
-/**
- * Get full areas hierarchy from hh.ru API
- * Returns tree structure: countries → regions → cities
- */
-export const getHhAreas = async (): Promise<HhAreaDetail[]> => {
-  const response = await hhApiClient.get<HhAreaDetail[]>('/areas');
   return response.data;
 };
 

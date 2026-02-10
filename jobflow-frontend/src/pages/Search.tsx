@@ -105,10 +105,15 @@ export default function Search() {
   }, [filters, setSearchParams]);
 
   const handleFilterChange = useCallback((newFilters: HhSearchParams) => {
-    const merged = { ...filters, ...newFilters, page: 0 };
-    setSearchParams(buildUrlParams(searchText, merged), { replace: true });
+    // Use functional update to avoid including filters in dependencies
+    setSearchParams((prev) => {
+      const currentFilters = parseFiltersFromUrl(prev);
+      const merged = { ...currentFilters, ...newFilters, page: 0 };
+      const currentText = prev.get('text') || '';
+      return buildUrlParams(currentText, merged);
+    }, { replace: true });
     if (isMobile) setIsFilterDrawerOpen(false);
-  }, [filters, searchText, setSearchParams, isMobile]);
+  }, [setSearchParams, isMobile]);
 
   const handlePageChange = useCallback((page: number) => {
     // MUI Pagination is 1-indexed, hh.ru API is 0-indexed
