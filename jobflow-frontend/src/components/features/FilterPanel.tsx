@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, memo } from 'react';
+import { useState, useCallback, useEffect, memo, useMemo, useRef } from 'react';
 import {
   Paper,
   Box,
@@ -47,6 +47,12 @@ function FilterPanel({
   const [selectedCountry, setSelectedCountry] = useState<string>('');
   const [selectedRegion, setSelectedRegion] = useState<string>('');
 
+  // Local state for salary input (for instant feedback without re-renders)
+  const [localSalary, setLocalSalary] = useState<number | undefined>(initialFilters.salary);
+
+  // Track if user is actively typing (to prevent sync interference)
+  const isTypingRef = useRef(false);
+
   // Track which accordions have been opened (for lazy-loading)
   const [expandedAccordions, setExpandedAccordions] = useState<Set<string>>(new Set());
 
@@ -82,21 +88,49 @@ function FilterPanel({
   const employmentOptions = dictionaries?.employment || [];
 
   // Sync internal state when external filters change (e.g., back-navigation restoring URL params)
+  // Use ref to track previous initialFilters to avoid comparing with current filters
+  const prevInitialFiltersRef = useRef(initialFilters);
+
   useEffect(() => {
-    setFilters(initialFilters);
+    // Check if initialFilters actually changed (not just a re-render with same values)
+    const prev = prevInitialFiltersRef.current;
+    const isDifferent =
+      prev.area !== initialFilters.area ||
+      prev.industry !== initialFilters.industry ||
+      prev.professional_role !== initialFilters.professional_role ||
+      prev.salary !== initialFilters.salary ||
+      prev.experience !== initialFilters.experience ||
+      prev.schedule !== initialFilters.schedule ||
+      prev.employment !== initialFilters.employment ||
+      prev.only_with_salary !== initialFilters.only_with_salary ||
+      prev.page !== initialFilters.page ||
+      prev.per_page !== initialFilters.per_page;
+
+    // Only sync if initialFilters actually changed from external source (e.g., browser back/forward)
+    if (isDifferent) {
+      setFilters(initialFilters);
+      // Only sync localSalary if not actively typing (prevents interference with user input)
+      if (!isTypingRef.current) {
+        setLocalSalary(initialFilters.salary);
+      }
+      // Update ref to track current initialFilters
+      prevInitialFiltersRef.current = initialFilters;
+    }
   }, [initialFilters]);
 
-  // Count active filters
-  const activeFilterCount = [
-    filters.area,
-    filters.industry,
-    filters.professional_role,
-    filters.salary,
-    filters.experience,
-    filters.schedule,
-    filters.employment,
-    filters.only_with_salary,
-  ].filter(Boolean).length;
+  // Count active filters (memoized to avoid recalculation on every render)
+  const activeFilterCount = useMemo(() => {
+    return [
+      filters.area,
+      filters.industry,
+      filters.professional_role,
+      filters.salary,
+      filters.experience,
+      filters.schedule,
+      filters.employment,
+      filters.only_with_salary,
+    ].filter(Boolean).length;
+  }, [filters]);
 
   const handleFilterChange = useCallback(
     (field: keyof HhSearchParams, value: string | number | boolean | undefined) => {
@@ -105,15 +139,38 @@ function FilterPanel({
     []
   );
 
+  // Debounce salary input to avoid re-renders on every keystroke
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      handleFilterChange('salary', localSalary);
+      isTypingRef.current = false; // Mark typing complete after debounce
+    }, 300); // 300ms debounce
+
+    return () => clearTimeout(timer);
+  }, [localSalary, handleFilterChange]);
+
   const handleApplyFilters = useCallback(() => {
     onFilterChange(filters);
   }, [filters, onFilterChange]);
 
   const handleClearFilters = useCallback(() => {
-    const cleared: HhSearchParams = { page: 0, per_page: 20 };
+    // Explicitly set all filter fields to undefined to clear them
+    const cleared: HhSearchParams = {
+      page: 0,
+      per_page: 20,
+      area: undefined,
+      industry: undefined,
+      professional_role: undefined,
+      salary: undefined,
+      experience: undefined,
+      schedule: undefined,
+      employment: undefined,
+      only_with_salary: undefined,
+    };
     setFilters(cleared);
     setSelectedCountry('');
     setSelectedRegion('');
+    setLocalSalary(undefined);
     onFilterChange(cleared);
   }, [onFilterChange]);
 
@@ -158,9 +215,11 @@ function FilterPanel({
                 value={selectedCountry}
                 label="Select Country"
                 onChange={(e) => {
-                  setSelectedCountry(e.target.value);
-                  setSelectedRegion(''); // Reset region
-                  handleFilterChange('area', undefined); // Clear area filter
+                  const countryId = e.target.value;
+                  setSelectedCountry(countryId);
+                  setSelectedRegion(''); // Reset region (cascade)
+                  // Set area to country ID (or undefined if "Any" selected)
+                  handleFilterChange('area', countryId || undefined);
                 }}
                 startAdornment={
                   isCountriesLoading ? <CircularProgress size={20} sx={{ mr: 1 }} /> : null
@@ -195,13 +254,10 @@ function FilterPanel({
                   const regionId = e.target.value;
                   setSelectedRegion(regionId);
 
-                  // Check if selected region has cities
-                  const selectedRegionData = regions?.find(r => r.id === regionId);
-                  const hasCities = selectedRegionData?.areas && selectedRegionData.areas.length > 0;
-
-                  // If no cities, use region ID as area (e.g., Minsk is both region and city)
-                  // Otherwise, clear area and wait for city selection
-                  handleFilterChange('area', hasCities ? undefined : regionId);
+                  // If region selected, use its ID
+                  // If "Any" selected (empty string), fall back to country ID
+                  const areaId = regionId || selectedCountry;
+                  handleFilterChange('area', areaId || undefined);
                 }}
                 startAdornment={
                   isRegionsLoading ? <CircularProgress size={20} sx={{ mr: 1 }} /> : null
@@ -234,7 +290,10 @@ function FilterPanel({
               getOptionLabel={(option) => option.name}
               value={cities?.find((c) => c.id === filters.area) || null}
               onChange={(_, value) => {
-                handleFilterChange('area', value?.id);
+                // If city selected, use its ID
+                // If cleared (null), fall back to region ID
+                const areaId = value?.id || selectedRegion;
+                handleFilterChange('area', areaId || undefined);
               }}
               renderInput={(params) => (
                 <TextField
@@ -363,10 +422,11 @@ function FilterPanel({
                 fullWidth
                 type="number"
                 label="Minimum Salary"
-                value={filters.salary || ''}
-                onChange={(e) =>
-                  handleFilterChange('salary', e.target.value ? Number(e.target.value) : undefined)
-                }
+                value={localSalary || ''}
+                onChange={(e) => {
+                  isTypingRef.current = true;
+                  setLocalSalary(e.target.value ? Number(e.target.value) : undefined);
+                }}
                 InputProps={{ inputProps: { min: 0, step: 10000 } }}
               />
 
@@ -487,4 +547,33 @@ function FilterPanel({
   );
 }
 
-export default memo(FilterPanel);
+// Custom comparison function to prevent re-renders when filters haven't actually changed
+const arePropsEqual = (
+  prevProps: FilterPanelProps,
+  nextProps: FilterPanelProps
+): boolean => {
+  // Compare onFilterChange by reference
+  if (prevProps.onFilterChange !== nextProps.onFilterChange) {
+    return false;
+  }
+
+  // Deep compare initialFilters
+  const prevFilters = prevProps.initialFilters || {};
+  const nextFilters = nextProps.initialFilters || {};
+
+  // Compare each filter property
+  return (
+    prevFilters.area === nextFilters.area &&
+    prevFilters.industry === nextFilters.industry &&
+    prevFilters.professional_role === nextFilters.professional_role &&
+    prevFilters.salary === nextFilters.salary &&
+    prevFilters.experience === nextFilters.experience &&
+    prevFilters.schedule === nextFilters.schedule &&
+    prevFilters.employment === nextFilters.employment &&
+    prevFilters.only_with_salary === nextFilters.only_with_salary &&
+    prevFilters.page === nextFilters.page &&
+    prevFilters.per_page === nextFilters.per_page
+  );
+};
+
+export default memo(FilterPanel, arePropsEqual);

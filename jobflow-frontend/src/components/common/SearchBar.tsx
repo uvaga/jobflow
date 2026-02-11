@@ -1,4 +1,4 @@
-import {useState, useCallback, type FormEvent, useEffect} from 'react';
+import {useState, useCallback, type FormEvent, useEffect, useRef} from 'react';
 import {Paper, InputBase, IconButton} from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import ClearIcon from '@mui/icons-material/Clear';
@@ -24,12 +24,18 @@ export default function SearchBar({
     // Internal state for instant UI feedback
     const [localValue, setLocalValue] = useState(value);
 
+    // Track if user is actively typing (to prevent sync interference)
+    const isTypingRef = useRef(false);
+
     // Debounce the value before notifying parent
     const debouncedValue = useDebounce(localValue, debounceMs);
 
     // Sync local state when external value changes (e.g., URL navigation)
+    // Only sync if user is not actively typing (prevents overwriting during race conditions)
     useEffect(() => {
-        setLocalValue(value);
+        if (!isTypingRef.current) {
+            setLocalValue(value);
+        }
     }, [value]);
 
     // Notify parent only after debounce
@@ -37,6 +43,8 @@ export default function SearchBar({
         if (debouncedValue !== value) {
             onChange(debouncedValue);
         }
+        // Mark typing as complete after debounce
+        isTypingRef.current = false;
     }, [debouncedValue]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const handleSubmit = useCallback(
@@ -54,9 +62,11 @@ export default function SearchBar({
     const handleClear = useCallback(() => {
         setLocalValue('');
         onChange('');
+        isTypingRef.current = false; // Not actively typing after clear
     }, [onChange]);
 
     const handleChange = useCallback((newValue: string) => {
+        isTypingRef.current = true; // Mark as actively typing
         setLocalValue(newValue);
     }, []);
 

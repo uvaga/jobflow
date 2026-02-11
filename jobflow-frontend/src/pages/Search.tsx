@@ -30,6 +30,7 @@ function parseFiltersFromUrl(sp: URLSearchParams): HhSearchParams {
     page: sp.has('page') ? Number(sp.get('page')) : 0,
     per_page: sp.has('per_page') ? Number(sp.get('per_page')) : 20,
     area: sp.get('area') || undefined,
+    industry: sp.get('industry') || undefined,
     professional_role: sp.get('professional_role') || undefined,
     salary: sp.has('salary') ? Number(sp.get('salary')) : undefined,
     experience: sp.get('experience') || undefined,
@@ -44,6 +45,7 @@ function buildUrlParams(text: string, filters: HhSearchParams): URLSearchParams 
   const params = new URLSearchParams();
   if (text) params.set('text', text);
   if (filters.area) params.set('area', filters.area);
+  if (filters.industry) params.set('industry', filters.industry);
   if (filters.professional_role) params.set('professional_role', filters.professional_role);
   if (filters.salary) params.set('salary', String(filters.salary));
   if (filters.experience) params.set('experience', filters.experience);

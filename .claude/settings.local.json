@@ -40,7 +40,8 @@
       "mcp__playwright__browser_network_requests",
       "WebSearch",
       "WebFetch(domain:tanstack.com)",
-      "Bash(powershell -Command:*)"
+      "Bash(powershell -Command:*)",
+      "mcp__playwright__browser_run_code"
     ]
   }
 }
