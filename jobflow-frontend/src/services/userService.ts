@@ -4,7 +4,11 @@ import type { User } from '@/types';
 export interface UpdateUserDto {
   firstName?: string;
   lastName?: string;
-  email?: string;
+}
+
+export interface ChangePasswordDto {
+  currentPassword: string;
+  newPassword: string;
 }
 
 /**
@@ -20,5 +24,13 @@ export const getProfile = async (): Promise<User> => {
  */
 export const updateProfile = async (data: UpdateUserDto): Promise<User> => {
   const response = await apiClient.put<User>('/users/me', data);
+  return response.data;
+};
+
+/**
+ * Change current user password
+ */
+export const changePassword = async (data: ChangePasswordDto): Promise<{ message: string }> => {
+  const response = await apiClient.patch<{ message: string }>('/users/me/password', data);
   return response.data;
 };

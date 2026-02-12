@@ -26,8 +26,8 @@ export default function Home() {
           paragraph
           sx={{ mb: 4, maxWidth: 600 }}
         >
-          Search thousands of job vacancies from hh.ru and track your
-          applications all in one place
+          Search thousands of job vacancies and track your applications
+          all in one place
         </Typography>
         <Stack direction="row" spacing={2}>
           <Button

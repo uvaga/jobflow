@@ -26,4 +26,8 @@ export default () => ({
     ttl: parseInt(process.env.RATE_LIMIT_TTL || '60', 10),
     max: parseInt(process.env.RATE_LIMIT_MAX || '100', 10),
   },
+
+  hhApi: {
+    locale: process.env.HH_API_LOCALE || 'EN',
+  },
 });

@@ -10,6 +10,7 @@ import {
   IconButton,
   Divider,
   Avatar,
+  Tooltip,
 } from '@mui/material';
 import BookmarkBorderIcon from '@mui/icons-material/BookmarkBorder';
 import BookmarkIcon from '@mui/icons-material/Bookmark';
@@ -173,14 +174,16 @@ function VacancyCard({
             {vacancy.name}
           </Typography>
           {showSaveButton && onSave && (
-            <IconButton
-              size="small"
-              onClick={handleSaveClick}
-              color={savedState ? 'primary' : 'default'}
-              aria-label={savedState ? 'Remove from saved' : 'Save vacancy'}
-            >
-              {savedState ? <BookmarkIcon /> : <BookmarkBorderIcon />}
-            </IconButton>
+            <Tooltip title={savedState ? 'Remove from saved vacancies' : 'Save vacancy to track it'}>
+              <IconButton
+                size="small"
+                onClick={handleSaveClick}
+                color={savedState ? 'primary' : 'default'}
+                aria-label={savedState ? 'Remove from saved' : 'Save vacancy'}
+              >
+                {savedState ? <BookmarkIcon /> : <BookmarkBorderIcon />}
+              </IconButton>
+            </Tooltip>
           )}
         </Box>
 
@@ -214,29 +217,35 @@ function VacancyCard({
 
         {/* Details */}
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <LocationOnIcon fontSize="small" color="action" />
-            <Typography variant="body2" color="text.secondary">
-              {vacancy.area.name}
-            </Typography>
-          </Box>
-
-          {vacancy.experience && (
+          <Tooltip title="Location">
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <WorkIcon fontSize="small" color="action" />
+              <LocationOnIcon fontSize="small" color="action" />
               <Typography variant="body2" color="text.secondary">
-                {vacancy.experience.name}
+                {vacancy.area.name}
               </Typography>
             </Box>
+          </Tooltip>
+
+          {vacancy.experience && (
+            <Tooltip title="Experience">
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <WorkIcon fontSize="small" color="action" />
+                <Typography variant="body2" color="text.secondary">
+                  {vacancy.experience.name}
+                </Typography>
+              </Box>
+            </Tooltip>
           )}
 
           {vacancy.schedule && (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <ScheduleIcon fontSize="small" color="action" />
-              <Typography variant="body2" color="text.secondary">
-                {vacancy.schedule.name}
-              </Typography>
-            </Box>
+            <Tooltip title="Schedule">
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <ScheduleIcon fontSize="small" color="action" />
+                <Typography variant="body2" color="text.secondary">
+                  {vacancy.schedule.name}
+                </Typography>
+              </Box>
+            </Tooltip>
           )}
         </Box>
 

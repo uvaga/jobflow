@@ -1,4 +1,4 @@
-import { Box, Container, Typography, Link } from '@mui/material';
+import { Box, Container, Typography } from '@mui/material';
 
 export default function Footer() {
   return (
@@ -18,15 +18,7 @@ export default function Footer() {
         <Typography variant="body2" color="text.secondary" align="center">
           {'© '}
           {new Date().getFullYear()}
-          {' JobFlow - Job Search Application. Powered by '}
-          <Link
-            color="inherit"
-            href="https://hh.ru"
-            target="_blank"
-            rel="noopener"
-          >
-            hh.ru API
-          </Link>
+          {' JobFlow - Job Search Application'}
         </Typography>
       </Container>
     </Box>

@@ -7,7 +7,7 @@ export type VacancyDocument = Vacancy & Document;
 export class Vacancy extends Document {
   @Prop({
     required: true,
-    unique: true,
+    index: true,
   })
   hhId: string;
 

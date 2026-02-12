@@ -1,11 +1,13 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { User } from './schemas/user.schema';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { QuerySavedVacanciesDto } from './dto/query-saved-vacancies.dto';
 import { VacanciesService } from '../vacancies/vacancies.service';
+import { Vacancy } from '../vacancies/schemas/vacancy.schema';
 import { VacancyProgressStatus } from '../vacancy-progress/enums/vacancy-progress-status.enum';
 import * as bcrypt from 'bcrypt';
 
@@ -40,10 +42,6 @@ export class UsersService {
   }
 
   async update(id: string, updateUserDto: UpdateUserDto): Promise<User> {
-    if (updateUserDto.password) {
-      updateUserDto.password = await bcrypt.hash(updateUserDto.password, 10);
-    }
-
     const user = await this.userModel
       .findByIdAndUpdate(id, updateUserDto, { new: true })
       .exec();
@@ -55,25 +53,49 @@ export class UsersService {
     return user;
   }
 
+  async changePassword(id: string, dto: ChangePasswordDto): Promise<{ message: string }> {
+    const user = await this.userModel.findById(id).select('+password').exec();
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const isCurrentPasswordValid = await bcrypt.compare(dto.currentPassword, user.password);
+    if (!isCurrentPasswordValid) {
+      throw new UnauthorizedException('Current password is incorrect');
+    }
+
+    user.password = await bcrypt.hash(dto.newPassword, 10);
+    await user.save();
+
+    return { message: 'Password changed successfully' };
+  }
+
   /**
-   * Save a vacancy: fetch from hh.ru, store permanently, add to user's savedVacancies.
+   * Save a vacancy: fetch from hh.ru, create per-user snapshot, add to user's savedVacancies.
    */
   async addVacancy(userId: string, hhId: string): Promise<User> {
-    // Fetch and save vacancy permanently from hh.ru
-    const vacancy = await this.vacanciesService.saveVacancyFromHh(hhId);
-    const vacancyObjectId = vacancy._id as Types.ObjectId;
-
     // Check if already saved by this user
-    const alreadySaved = await this.userModel
-      .findOne({
-        _id: userId,
-        'savedVacancies.vacancy': vacancyObjectId,
-      })
+    const existingUser = await this.userModel
+      .findById(userId)
+      .populate('savedVacancies.vacancy')
       .exec();
 
-    if (alreadySaved) {
-      return alreadySaved;
+    if (!existingUser) {
+      throw new NotFoundException('User not found');
     }
+
+    const alreadySaved = existingUser.savedVacancies.some(
+      (sv) => (sv.vacancy as any)?.hhId === hhId,
+    );
+
+    if (alreadySaved) {
+      return existingUser;
+    }
+
+    // Create a new vacancy snapshot for this user
+    const vacancy = await this.vacanciesService.saveVacancyFromHh(hhId);
+    const vacancyObjectId = vacancy._id as Types.ObjectId;
 
     // Add to savedVacancies with initial progress
     const user = await this.userModel
@@ -96,35 +118,45 @@ export class UsersService {
       )
       .exec();
 
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
-
-    return user;
+    return user!;
   }
 
   /**
-   * Remove a vacancy from user's savedVacancies.
+   * Remove a vacancy from user's savedVacancies and delete the vacancy snapshot.
    */
   async removeVacancy(userId: string, hhId: string): Promise<User> {
-    const vacancy = await this.vacanciesService.findByHhId(hhId);
-    if (!vacancy) {
-      throw new NotFoundException(`Vacancy with hhId ${hhId} not found`);
-    }
-
     const user = await this.userModel
-      .findByIdAndUpdate(
-        userId,
-        { $pull: { savedVacancies: { vacancy: vacancy._id } } },
-        { new: true },
-      )
+      .findById(userId)
+      .populate('savedVacancies.vacancy')
       .exec();
 
     if (!user) {
       throw new NotFoundException('User not found');
     }
 
-    return user;
+    const entry = user.savedVacancies.find(
+      (sv) => (sv.vacancy as any)?.hhId === hhId,
+    );
+
+    if (!entry) {
+      return user;
+    }
+
+    const vacancyId = (entry.vacancy as any)._id as Types.ObjectId;
+
+    // Delete the vacancy snapshot from the collection
+    await this.vacanciesService.deleteById(vacancyId);
+
+    // Remove from user's savedVacancies
+    const updatedUser = await this.userModel
+      .findByIdAndUpdate(
+        userId,
+        { $pull: { savedVacancies: { vacancy: vacancyId } } },
+        { new: true },
+      )
+      .exec();
+
+    return updatedUser!;
   }
 
   /**
@@ -214,16 +246,31 @@ export class UsersService {
     hhId: string,
     status: string,
   ): Promise<any> {
-    const vacancy = await this.vacanciesService.findByHhId(hhId);
-    if (!vacancy) {
-      throw new NotFoundException(`Vacancy with hhId ${hhId} not found`);
+    // Find user's specific vacancy via populate
+    const existingUser = await this.userModel
+      .findById(userId)
+      .populate('savedVacancies.vacancy')
+      .exec();
+
+    if (!existingUser) {
+      throw new NotFoundException('User not found');
     }
+
+    const entry = existingUser.savedVacancies.find(
+      (sv) => (sv.vacancy as any)?.hhId === hhId,
+    );
+
+    if (!entry) {
+      throw new NotFoundException('Saved vacancy not found');
+    }
+
+    const vacancyId = (entry.vacancy as any)._id as Types.ObjectId;
 
     const user = await this.userModel
       .findOneAndUpdate(
         {
           _id: userId,
-          'savedVacancies.vacancy': vacancy._id,
+          'savedVacancies.vacancy': vacancyId,
         },
         {
           $push: {
@@ -243,10 +290,35 @@ export class UsersService {
     }
 
     // Return the updated entry
+    const updatedEntry = user.savedVacancies.find(
+      (sv) => (sv.vacancy as any)?.hhId === hhId,
+    );
+
+    return updatedEntry;
+  }
+
+  /**
+   * Refresh a user's saved vacancy snapshot from hh.ru API.
+   */
+  async refreshVacancy(userId: string, hhId: string): Promise<Vacancy> {
+    const user = await this.userModel
+      .findById(userId)
+      .populate('savedVacancies.vacancy')
+      .exec();
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
     const entry = user.savedVacancies.find(
       (sv) => (sv.vacancy as any)?.hhId === hhId,
     );
 
-    return entry;
+    if (!entry) {
+      throw new NotFoundException('Saved vacancy not found');
+    }
+
+    const vacancyId = (entry.vacancy as any)._id as Types.ObjectId;
+    return this.vacanciesService.refreshVacancyById(vacancyId, hhId);
   }
 }

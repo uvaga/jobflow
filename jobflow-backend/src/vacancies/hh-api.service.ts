@@ -10,6 +10,7 @@ export class HhApiService {
   private readonly baseUrl: string;
   private readonly logger = new Logger(HhApiService.name);
   private readonly userAgent: string;
+  private readonly locale: string;
 
   constructor(
     private readonly httpService: HttpService,
@@ -20,6 +21,7 @@ export class HhApiService {
       'HH_USER_AGENT',
       'JobFlow/1.0 (contact@example.com)',
     );
+    this.locale = this.configService.get<string>('HH_API_LOCALE', 'EN');
   }
 
   async searchVacancies(params: SearchVacanciesDto): Promise<any> {
@@ -49,12 +51,17 @@ export class HhApiService {
           )
         : undefined;
 
-      this.logger.debug(`Request to ${this.baseUrl}${endpoint} with params:`, cleanParams);
+      const paramsWithLocale = {
+        ...(cleanParams || {}),
+        locale: this.locale,
+      };
+
+      this.logger.debug(`Request to ${this.baseUrl}${endpoint} with params:`, paramsWithLocale);
 
       const response = await firstValueFrom(
         this.httpService
           .get(`${this.baseUrl}${endpoint}`, {
-            params: cleanParams,
+            params: paramsWithLocale,
             headers: {
               'User-Agent': this.userAgent,
               'HH-User-Agent': this.userAgent,

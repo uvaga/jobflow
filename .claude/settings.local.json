@@ -42,7 +42,10 @@
       "WebFetch(domain:tanstack.com)",
       "Bash(powershell -Command:*)",
       "mcp__playwright__browser_run_code",
-      "mcp__playwright__browser_fill_form"
+      "mcp__playwright__browser_fill_form",
+      "mcp__playwright__browser_hover",
+      "Bash(docker exec:*)",
+      "mcp__ide__getDiagnostics"
     ]
   }
 }

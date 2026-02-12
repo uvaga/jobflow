@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Box,
@@ -16,6 +16,7 @@ import {
 import BookmarkIcon from '@mui/icons-material/Bookmark';
 import VacancyCard from '@/components/features/VacancyCard';
 import Pagination from '@/components/common/Pagination';
+import ConfirmDialog from '@/components/common/ConfirmDialog';
 import { useSavedVacancies, useRemoveVacancy } from '@/hooks/useVacancies';
 import { VacancyProgressStatus } from '@/types/vacancyProgress';
 import type { SavedVacanciesParams } from '@/services/vacancyService';
@@ -55,6 +56,7 @@ export default function SavedVacancies() {
   const [searchParams, setSearchParams] = useSearchParams();
   const params = useMemo(() => parseSearchParams(searchParams), [searchParams]);
   const removeVacancyMutation = useRemoveVacancy();
+  const [vacancyToRemove, setVacancyToRemove] = useState<string | null>(null);
 
   const { data, isLoading, error } = useSavedVacancies(params);
 
@@ -92,8 +94,20 @@ export default function SavedVacancies() {
   }, [navigate]);
 
   const handleUnsave = useCallback((hhId: string) => {
-    removeVacancyMutation.mutate(hhId);
-  }, [removeVacancyMutation]);
+    setVacancyToRemove(hhId);
+  }, []);
+
+  const handleConfirmRemove = useCallback(() => {
+    if (vacancyToRemove) {
+      removeVacancyMutation.mutate(vacancyToRemove, {
+        onSettled: () => setVacancyToRemove(null),
+      });
+    }
+  }, [vacancyToRemove, removeVacancyMutation]);
+
+  const handleCancelRemove = useCallback(() => {
+    setVacancyToRemove(null);
+  }, []);
 
   return (
     <Container maxWidth="lg">
@@ -221,6 +235,16 @@ export default function SavedVacancies() {
           </>
         )}
       </Box>
+
+      <ConfirmDialog
+        open={vacancyToRemove !== null}
+        title="Remove Vacancy"
+        message="Are you sure you want to remove this vacancy from your saved list? This action cannot be undone."
+        confirmText="Remove"
+        onConfirm={handleConfirmRemove}
+        onCancel={handleCancelRemove}
+        loading={removeVacancyMutation.isPending}
+      />
     </Container>
   );
 }

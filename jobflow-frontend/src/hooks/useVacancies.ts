@@ -114,7 +114,12 @@ export function useRemoveVacancy() {
   return useMutation<void, Error, string>({
     mutationFn: removeVacancy,
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: vacancyKeys.saved() });
+      // Only invalidate saved list queries — not detail queries.
+      // If removing from the detail page, the detail observer would cause a
+      // 404 refetch before the component navigates away and unmounts.
+      void queryClient.invalidateQueries({
+        queryKey: [...vacancyKeys.saved(), 'list'],
+      });
       showSuccess('Vacancy removed from saved list');
     },
     onError: (error: Error) => {
@@ -136,7 +141,7 @@ export function useRefreshSavedVacancy() {
     onSuccess: (_data, hhId) => {
       void queryClient.invalidateQueries({ queryKey: vacancyKeys.saved() });
       void queryClient.invalidateQueries({ queryKey: vacancyKeys.savedDetail(hhId) });
-      showSuccess('Vacancy refreshed from hh.ru');
+      showSuccess('Vacancy data refreshed');
     },
     onError: (error: Error) => {
       showError('Failed to refresh vacancy. Please try again.');

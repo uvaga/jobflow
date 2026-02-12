@@ -15,12 +15,12 @@ import {
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { QuerySavedVacanciesDto } from './dto/query-saved-vacancies.dto';
 import { UpdateProgressDto } from './dto/update-progress.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { User } from './schemas/user.schema';
-import { VacanciesService } from '../vacancies/vacancies.service';
 
 @ApiTags('Users')
 @ApiBearerAuth()
@@ -29,7 +29,6 @@ import { VacanciesService } from '../vacancies/vacancies.service';
 export class UsersController {
   constructor(
     private readonly usersService: UsersService,
-    private readonly vacanciesService: VacanciesService,
   ) {}
 
   @Get('me')
@@ -42,6 +41,13 @@ export class UsersController {
   @ApiOperation({ summary: 'Update current user profile' })
   updateProfile(@CurrentUser() user: User, @Body() dto: UpdateUserDto) {
     return this.usersService.update(user._id.toString(), dto);
+  }
+
+  @Patch('me/password')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Change current user password' })
+  changePassword(@CurrentUser() user: User, @Body() dto: ChangePasswordDto) {
+    return this.usersService.changePassword(user._id.toString(), dto);
   }
 
   @Get('me/vacancies')
@@ -91,7 +97,7 @@ export class UsersController {
     @CurrentUser() user: User,
     @Param('hhId') hhId: string,
   ) {
-    return this.vacanciesService.refreshVacancyFromHh(hhId);
+    return this.usersService.refreshVacancy(user._id.toString(), hhId);
   }
 
   @Patch('me/vacancies/:hhId/progress')

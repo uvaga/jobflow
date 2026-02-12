@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { Vacancy } from './schemas/vacancy.schema';
 import { HhApiService } from './hh-api.service';
 import { SearchVacanciesDto } from './dto/search-vacancies.dto';
@@ -17,14 +17,11 @@ export class VacanciesService {
   }
 
   async findById(id: string) {
-    // Check cache first (includes both cached and permanently saved vacancies)
+    // Check cache only (cached copies have cacheExpiresAt, user snapshots do not)
     const cached = await this.vacancyModel
       .findOne({
         hhId: id,
-        $or: [
-          { cacheExpiresAt: { $gt: new Date() } },
-          { cacheExpiresAt: { $exists: false } },
-        ],
+        cacheExpiresAt: { $gt: new Date() },
       })
       .exec();
 
@@ -36,77 +33,63 @@ export class VacanciesService {
     const apiData = await this.hhApiService.getVacancyById(id);
     const mappedData = this.mapHhApiToVacancy(apiData);
 
-    // Cache it with 7-day TTL
-    const vacancy = await this.vacancyModel.findOneAndUpdate(
-      { hhId: id },
-      {
-        ...mappedData,
-        hhId: id,
-        cacheExpiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-      },
-      { upsert: true, new: true },
-    );
+    // Cache it with 7-day TTL (skip validation — external API data may lack optional fields)
+    const vacancy = new this.vacancyModel({
+      ...mappedData,
+      hhId: id,
+      cacheExpiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+    });
 
-    return vacancy;
-  }
-
-  async findByHhId(hhId: string): Promise<Vacancy | null> {
-    return this.vacancyModel.findOne({ hhId }).exec();
+    return vacancy.save({ validateBeforeSave: false });
   }
 
   /**
-   * Save vacancy permanently from hh.ru API (no TTL).
-   * If vacancy already exists, removes cacheExpiresAt to make it permanent.
+   * Fetch vacancy from hh.ru API and create a new permanent snapshot (no TTL).
+   * Each user save creates a separate document.
    */
   async saveVacancyFromHh(hhId: string): Promise<Vacancy> {
-    // Check if vacancy already exists
-    const existing = await this.vacancyModel.findOne({ hhId }).exec();
-
-    if (existing) {
-      // Make permanent by removing cacheExpiresAt
-      if (existing.cacheExpiresAt) {
-        await this.vacancyModel
-          .updateOne({ hhId }, { $unset: { cacheExpiresAt: 1 } })
-          .exec();
-        existing.cacheExpiresAt = undefined;
-      }
-      return existing;
-    }
-
-    // Fetch from hh.ru API
     const apiData = await this.hhApiService.getVacancyById(hhId);
     const mappedData = this.mapHhApiToVacancy(apiData);
 
-    // Save permanently (no cacheExpiresAt)
-    const vacancy = await this.vacancyModel.findOneAndUpdate(
-      { hhId },
-      { ...mappedData, hhId },
-      { upsert: true, new: true },
-    );
+    // Skip validation — external API data may lack fields marked as required
+    const vacancy = new this.vacancyModel({
+      ...mappedData,
+      hhId,
+    });
 
-    return vacancy;
+    return vacancy.save({ validateBeforeSave: false });
   }
 
   /**
-   * Re-fetch vacancy from hh.ru API and update MongoDB.
+   * Re-fetch vacancy from hh.ru API and update a specific document by ObjectId.
    */
-  async refreshVacancyFromHh(hhId: string): Promise<Vacancy> {
+  async refreshVacancyById(
+    vacancyId: Types.ObjectId,
+    hhId: string,
+  ): Promise<Vacancy> {
     const apiData = await this.hhApiService.getVacancyById(hhId);
     const mappedData = this.mapHhApiToVacancy(apiData);
 
     const vacancy = await this.vacancyModel
-      .findOneAndUpdate(
-        { hhId },
+      .findByIdAndUpdate(
+        vacancyId,
         { ...mappedData, hhId },
         { new: true },
       )
       .exec();
 
     if (!vacancy) {
-      throw new NotFoundException(`Vacancy with hhId ${hhId} not found`);
+      throw new NotFoundException(`Vacancy not found`);
     }
 
     return vacancy;
+  }
+
+  /**
+   * Delete a vacancy document by ObjectId.
+   */
+  async deleteById(id: Types.ObjectId): Promise<void> {
+    await this.vacancyModel.deleteOne({ _id: id }).exec();
   }
 
   async getDictionaries() {

@@ -35,11 +35,11 @@ jobflow-backend/
 │   │   ├── interceptors/        # Transform, Logging
 │   │   └── filters/             # HttpExceptionFilter
 │   ├── config/                  # Configuration module
-│   │   └── configuration.ts
+│   │   └── configuration.ts     # App config (DB, JWT, API, CORS, rate limit, hhApi.locale)
 │   ├── app.module.ts            # Root module
 │   └── main.ts                  # Bootstrap with global pipes/filters
 ├── test/
-│   ├── e2e/                     # E2E test suites (143 passing tests)
+│   ├── e2e/                     # E2E test suites (146 passing tests)
 │   │   ├── auth.e2e-spec.ts
 │   │   ├── users.e2e-spec.ts
 │   │   ├── vacancies.e2e-spec.ts
@@ -134,10 +134,10 @@ return { accessToken: '...', user: {...} };
 }
 ```
 
-### Vacancy Schema (Cached or Permanent)
+### Vacancy Schema (Cached or Per-User Snapshot)
 ```typescript
 {
-  hhId: string (unique, from hh.ru API)
+  hhId: string (indexed, non-unique — multiple users can each have their own snapshot)
   name: string
   employer: {
     id: string, name: string, url: string
@@ -164,17 +164,17 @@ return { accessToken: '...', user: {...} };
   acceptTemporary?: boolean
   acceptIncompleteResumes?: boolean
   publishedAt: Date
-  cacheExpiresAt?: Date (TTL index — absent for saved vacancies, 7 days for cached)
+  cacheExpiresAt?: Date (TTL index — absent for per-user snapshots, 7 days for cached)
 }
 
 // Indexes
-- hhId (unique)
+- hhId (non-unique index)
 - area.id
 - salary.from
 - cacheExpiresAt (TTL, sparse — documents without field are not deleted)
 ```
 
-**Save vs Cache**: When a user saves a vacancy, `cacheExpiresAt` is `$unset` (removed), making the document permanent. Search-cached vacancies have a 7-day TTL.
+**Save vs Cache**: Each user save creates a **separate vacancy document** (per-user snapshot) without `cacheExpiresAt`, making it permanent. The `hhId` field is non-unique — multiple users can each have their own snapshot of the same vacancy. Search-cached vacancies have a 7-day TTL with `cacheExpiresAt`. When a user removes a saved vacancy, the vacancy document is **cascade deleted** from the vacancies collection.
 
 ### VacancyProgress Schema
 ```typescript
@@ -210,18 +210,19 @@ return { accessToken: '...', user: {...} };
 
 ### Users (Protected)
 - `GET /users/me` - Get current user profile
-- `PUT /users/me` - Update profile (firstName, lastName, password)
+- `PUT /users/me` - Update profile (firstName, lastName)
+- `PATCH /users/me/password` - Change password (requires current password verification)
 - `GET /users/me/vacancies` - List saved vacancies (paginated, filter by status, sort by date/name)
 - `GET /users/me/vacancies/:hhId` - Get saved vacancy detail with progress history
-- `POST /users/me/vacancies/:hhId` - Save vacancy (fetches from hh.ru, stores permanently in MongoDB)
-- `DELETE /users/me/vacancies/:hhId` - Remove from saved list
-- `POST /users/me/vacancies/:hhId/refresh` - Re-fetch vacancy data from hh.ru API
+- `POST /users/me/vacancies/:hhId` - Save vacancy (fetches from external API, creates per-user snapshot in MongoDB)
+- `DELETE /users/me/vacancies/:hhId` - Remove from saved list (cascade deletes vacancy document)
+- `POST /users/me/vacancies/:hhId/refresh` - Re-fetch vacancy data from external API
 - `PATCH /users/me/vacancies/:hhId/progress` - Update progress status (appends to progress history)
 
 ### Vacancies (Public)
-- `GET /vacancies/search` - Search vacancies on hh.ru API
-- `GET /vacancies/dictionaries` - Get hh.ru reference data
-- `GET /vacancies/:id` - Get vacancy by hh.ru ID (with 7-day caching)
+- `GET /vacancies/search` - Search vacancies via external API
+- `GET /vacancies/dictionaries` - Get reference data (areas, schedules, etc.)
+- `GET /vacancies/:id` - Get vacancy by external ID (with 7-day caching)
 
 ### Vacancy Progress (Protected)
 - `POST /vacancy-progress` - Create application tracking
@@ -237,10 +238,11 @@ return { accessToken: '...', user: {...} };
 
 ### Naming Patterns
 
-**Saved Vacancies API** (all use hhId — the hh.ru vacancy ID string):
-- Service methods: `getSavedVacancies()`, `getSavedVacancyByHhId()`, `addVacancy()`, `removeVacancy()`, `updateVacancyProgress()`
+**Saved Vacancies API** (all use hhId — the external vacancy ID string):
+- UsersService methods: `getSavedVacancies()`, `getSavedVacancyByHhId()`, `addVacancy()`, `removeVacancy()`, `refreshVacancy()`, `updateVacancyProgress()`
+- VacanciesService methods: `saveVacancyFromHh()`, `refreshVacancyById()`, `deleteById()`
 - Controller methods: `@Get('me/vacancies')`, `@Post('me/vacancies/:hhId')`, `@Patch('me/vacancies/:hhId/progress')`
-- MongoDB operators: `$push` (add subdocument), `$pull` (remove), `$unset` (remove TTL)
+- MongoDB operators: `$push` (add subdocument), `$pull` (remove)
 
 **VacancyProgress (NOT "Application")**:
 - Always use `VacancyProgress` in code (files, classes, routes, functions)
@@ -284,40 +286,41 @@ export class RegisterDto {
 
 **MongoDB Operators for Saved Vacancies**:
 ```typescript
-// Add subdocument to savedVacancies array
+// Add subdocument to savedVacancies array (per-user snapshot)
 await this.userModel.findByIdAndUpdate(userId, {
   $push: {
     savedVacancies: {
-      vacancy: vacancyObjectId,
+      vacancy: vacancyObjectId,  // Each user gets their own vacancy document
       progress: [{ status: 'saved', statusSetDate: new Date() }]
     }
   }
 });
 
-// Remove subdocument from array
+// Remove subdocument from array + cascade delete vacancy document
+// 1. Find user's specific vacancy via populate + hhId match
+// 2. Delete the vacancy document from vacancies collection
+await this.vacancyModel.findByIdAndDelete(vacancyObjectId);
+// 3. Remove subdocument from user's savedVacancies array
 await this.userModel.findByIdAndUpdate(userId, {
   $pull: { savedVacancies: { vacancy: vacancyObjectId } }
 });
 
-// Update progress (push new status entry)
+// Update progress (push new status entry — uses populate to find user's vacancy ObjectId)
 await this.userModel.updateOne(
   { _id: userId, 'savedVacancies.vacancy': vacancyObjectId },
   { $push: { 'savedVacancies.$.progress': { status, statusSetDate: new Date() } } }
 );
-
-// Make vacancy permanent (remove TTL)
-await this.vacancyModel.updateOne({ _id: id }, { $unset: { cacheExpiresAt: 1 } });
 ```
 
 ## 🧪 Testing
 
 ### Test Structure
-- **E2E Tests**: 143 passing tests across 5 test files
+- **E2E Tests**: 152 passing tests across 5 test files
 - **Test Database**: Uses separate database (cleaned between tests)
 - **Test Helpers**:
   - `AuthHelper` - Registers/logs in test users, provides auth headers
   - `CleanupHelper` - Cleans collections between tests
-  - `MockHhApiService` - Mocks hh.ru API with 3 test vacancies
+  - `MockHhApiService` - Mocks external API with 3 test vacancies
 
 ### Running Tests
 ```bash
@@ -364,6 +367,9 @@ CORS_ORIGIN=http://localhost:3001
 # Rate Limiting
 RATE_LIMIT_TTL=60
 RATE_LIMIT_MAX=100
+
+# HH.ru API
+HH_API_LOCALE=EN
 ```
 
 ## 🚀 Development Commands
@@ -440,12 +446,15 @@ export class VacancyProgressService {
 export class HhApiService {
   private readonly baseUrl = 'https://api.hh.ru';
   private readonly httpService: HttpService;
+  private readonly locale: string;  // from HH_API_LOCALE env var (default: 'EN')
 
   async searchVacancies(params: SearchDto) {
     try {
+      // All requests include locale parameter for localized responses
+      const paramsWithLocale = { ...params, locale: this.locale };
       const response = await firstValueFrom(
         this.httpService.get('/vacancies', {
-          params,
+          params: paramsWithLocale,
           headers: { 'User-Agent': 'JobFlow/1.0' }
         })
       );

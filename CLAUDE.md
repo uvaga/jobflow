@@ -72,7 +72,7 @@ npm run db:status          # Check MongoDB container status
 **Backend**: NestJS 11, TypeScript 5.7, Mongoose 9, class-validator, Passport JWT
 **Frontend**: React 19, TypeScript 5.9, Vite 7, MUI 7, React Query 5, Zustand 5, Formik, Yup
 **Database**: MongoDB 4.4 (Docker)
-**Testing**: Jest (backend), Supertest (e2e tests - 143 passing)
+**Testing**: Jest (backend), Supertest (e2e tests - 152 passing)
 
 ## 🗄️ Database Access
 
@@ -91,7 +91,7 @@ docker exec -it jobflow-mongodb mongosh -u jobflow_user -p jobflow_dev_password 
 
 **Database Collections**:
 - `users` - User accounts, profiles, and saved vacancies with embedded progress tracking
-- `vacancies` - Vacancy data from hh.ru API (cached with 7-day TTL, or permanent when saved by user)
+- `vacancies` - Vacancy data (cached with 7-day TTL, or per-user snapshots when saved — each user save creates a separate document)
 - `vacancyprogresses` - User's job application tracking (8 status stages, legacy — new progress is embedded in user.savedVacancies)
 
 ## 📝 Current Implementation Status
@@ -108,7 +108,7 @@ docker exec -it jobflow-mongodb mongosh -u jobflow_user -p jobflow_dev_password 
 - Secure password hashing with bcrypt (10 rounds)
 - Frontend Zustand store with localStorage persistence
 
-**Backend Modules** (4 modules, 143 passing e2e tests):
+**Backend Modules** (4 modules, 152 passing e2e tests):
 - **Auth Module**: Register, login, refresh, logout endpoints
   - Dual JWT strategies (access + refresh with different secrets)
   - RefreshTokenGuard for token rotation
@@ -116,21 +116,23 @@ docker exec -it jobflow-mongodb mongosh -u jobflow_user -p jobflow_dev_password 
 
 - **Users Module**: Profile management and saved vacancies with embedded progress
   - GET/PUT `/users/me` - Profile CRUD
+  - PATCH `/users/me/password` - Change password (requires current password verification)
   - GET `/users/me/vacancies` - List saved vacancies (paginated, filterable by status, sortable)
   - GET `/users/me/vacancies/:hhId` - Get saved vacancy detail with progress history
-  - POST `/users/me/vacancies/:hhId` - Save vacancy (fetches from hh.ru, stores permanently)
-  - DELETE `/users/me/vacancies/:hhId` - Remove from saved list
-  - POST `/users/me/vacancies/:hhId/refresh` - Re-fetch vacancy data from hh.ru
+  - POST `/users/me/vacancies/:hhId` - Save vacancy (fetches from external API, creates per-user snapshot document)
+  - DELETE `/users/me/vacancies/:hhId` - Remove from saved list (cascade deletes the vacancy document)
+  - POST `/users/me/vacancies/:hhId/refresh` - Re-fetch vacancy data from external API
   - PATCH `/users/me/vacancies/:hhId/progress` - Update progress status
   - Saved vacancies use subdocument array with embedded progress tracking
 
-- **Vacancies Module**: hh.ru API integration
+- **Vacancies Module**: External vacancy API integration
   - GET `/vacancies/search` - Search with filters and pagination
   - GET `/vacancies/dictionaries` - Reference data (areas, schedules, etc.)
   - GET `/vacancies/:id` - Individual vacancy with 7-day caching
-  - `saveVacancyFromHh()` - Fetch from hh.ru and store permanently (no TTL)
-  - `refreshVacancyFromHh()` - Re-fetch and update existing saved vacancy
-  - Custom HhApiService for external API calls
+  - `saveVacancyFromHh()` - Fetch from external API and create per-user snapshot document (no TTL)
+  - `refreshVacancyById(vacancyId, hhId)` - Re-fetch and update specific vacancy document by ObjectId
+  - `deleteById(id)` - Delete vacancy document by ObjectId (used for cascade delete)
+  - Custom HhApiService for external API calls (sends `locale` parameter from `HH_API_LOCALE` env var)
 
 - **VacancyProgress Module**: Job application tracking (legacy)
   - Full CRUD operations with user isolation
@@ -147,15 +149,18 @@ docker exec -it jobflow-mongodb mongosh -u jobflow_user -p jobflow_dev_password 
   - Vacancy cards in responsive grid (1/2/3 columns)
   - Debounced search input (300ms)
   - Loading/error/empty states
-- **Vacancy Detail** (`/vacancy/:id`): Public vacancy detail page from hh.ru API
+- **Vacancy Detail** (`/vacancy/:id`): Public vacancy detail page from external API
+  - Uses shared vacancy-detail components + vacancy normalizer
+  - Save/unsave button, apply/view original posting links
 - **Saved Vacancies** (`/vacancies`): Protected list of user's saved vacancies
   - Filter by progress status, sort by date/name
   - VacancyCard grid with progress status chips
   - Pagination, loading/error/empty states
 - **Saved Vacancy Detail** (`/vacancies/:id`): Protected saved vacancy detail
+  - Uses shared vacancy-detail components + vacancy normalizer
   - Full vacancy info from MongoDB (permanently stored)
   - Progress status management (update, view history)
-  - Refresh from hh.ru, remove from saved
+  - Refresh vacancy data, remove from saved
   - Key skills, description, additional info sections
 
 **Frontend Infrastructure**:
@@ -169,27 +174,37 @@ docker exec -it jobflow-mongodb mongosh -u jobflow_user -p jobflow_dev_password 
   - Protected routes: /vacancies, /vacancies/:id, /vacancy-progress, /profile
 - **Components**: Reusable library
   - Layout: Header (with user menu), Footer, ProtectedRoute
-  - Features: VacancyList, VacancyCard, FilterPanel, ProgressStatusChip
+  - Features: VacancyList, VacancyCard (with MUI Tooltips), FilterPanel, ProgressStatusChip
+  - Features/vacancy-detail: VacancyDetailSkeleton, VacancyHeaderInfo, KeySkillsSection, DescriptionSection, AdditionalInfoSection, ContactsSection
   - Common: SearchBar, Pagination, LoadingSpinner, ErrorDisplay
+- **Utilities** (`src/utils/`):
+  - `vacancyHelpers.ts` - formatSalary, formatDate, formatDateTime functions
+  - `vacancyNormalizer.ts` - NormalizedVacancy interface, normalizeFromHhApi(), normalizeFromDb()
 - **Forms**: Formik + Yup for all form validation
 - **UI**: Material-UI 7 with custom theme, responsive design
 - **Hooks**: Custom React Query hooks with query key factory pattern
 - **Notifications**: notistack for toast notifications
 
+**Profile Page** (`/profile`): Protected user profile management
+- Profile Information section: Edit firstName, lastName (Formik + Yup validation)
+- Change Password section: Current password verification, new password with strength rules
+- Updates Zustand auth store on profile save
+- Toast notifications for success/error
+
 ### 🚧 Placeholder Pages (Future Implementation)
 - Vacancy progress tracking page (`/vacancy-progress`)
-- User profile management page (`/profile`)
 
 ## 🔑 Key Conventions
 
 ### API Naming Convention
-**Saved vacancies endpoints use hhId (hh.ru vacancy ID string)**:
+**Saved vacancies endpoints use hhId (external vacancy ID string)**:
 - `getSavedVacancies()` → GET `/api/v1/users/me/vacancies` (paginated, filterable)
 - `getSavedVacancyByHhId()` → GET `/api/v1/users/me/vacancies/:hhId`
-- `addVacancy()` → POST `/api/v1/users/me/vacancies/:hhId` (fetches from hh.ru)
-- `removeVacancy()` → DELETE `/api/v1/users/me/vacancies/:hhId`
+- `addVacancy()` → POST `/api/v1/users/me/vacancies/:hhId` (fetches from external API, creates per-user snapshot)
+- `removeVacancy()` → DELETE `/api/v1/users/me/vacancies/:hhId` (cascade deletes vacancy document)
 - `refreshVacancy()` → POST `/api/v1/users/me/vacancies/:hhId/refresh`
 - `updateVacancyProgress()` → PATCH `/api/v1/users/me/vacancies/:hhId/progress`
+- `changePassword()` → PATCH `/api/v1/users/me/password` (requires current password)
 
 **Frontend must match**:
 - Service functions: `fetchSavedVacancies()`, `fetchSavedVacancyDetail()`, `addVacancy()`, `removeVacancy()`, `refreshSavedVacancy()`, `updateVacancyProgress()`
@@ -227,6 +242,9 @@ CORS_ORIGIN=http://localhost:3001
 # Rate Limiting
 RATE_LIMIT_TTL=60
 RATE_LIMIT_MAX=100
+
+# HH.ru API
+HH_API_LOCALE=EN
 ```
 
 ### Frontend `.env`
@@ -245,7 +263,7 @@ VITE_API_BASE_URL=/api/v1
 - Backend wraps all responses in `{ data: {...} }` via TransformInterceptor
 - Frontend automatically refreshes tokens on 401 errors with request queuing
 - React Query DevTools available in development mode
-- 143 passing e2e tests on backend ensuring API stability
+- 146 passing e2e tests on backend ensuring API stability
 - The project uses conventional commits for git history
 
 ## 🔗 Important Files
