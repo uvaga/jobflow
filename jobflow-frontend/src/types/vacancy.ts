@@ -1,3 +1,5 @@
+import { VacancyProgressStatus } from './vacancyProgress';
+
 export interface Vacancy {
   _id: string;
   hhId: string;
@@ -7,7 +9,9 @@ export interface Vacancy {
     name: string;
     url?: string;
     logoUrls?: Record<string, string>;
+    alternateUrl?: string;
     trusted: boolean;
+    accreditedItEmployer?: boolean;
   };
   salary?: {
     from?: number;
@@ -21,6 +25,7 @@ export interface Vacancy {
     url: string;
   };
   url: string;
+  alternateUrl?: string;
   description: string;
   schedule?: {
     id: string;
@@ -34,10 +39,39 @@ export interface Vacancy {
     id: string;
     name: string;
   };
+  keySkills?: { name: string }[];
+  professionalRoles?: { id: string; name: string }[];
+  address?: Record<string, unknown>;
+  contacts?: Record<string, unknown>;
+  workFormat?: { id: string; name: string }[];
+  workingHours?: { id: string; name: string }[];
+  workScheduleByDays?: { id: string; name: string }[];
+  acceptHandicapped?: boolean;
+  acceptKids?: boolean;
+  acceptTemporary?: boolean;
+  acceptIncompleteResumes?: boolean;
   publishedAt: string;
-  cacheExpiresAt: string;
+  cacheExpiresAt?: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface ProgressEntry {
+  status: VacancyProgressStatus;
+  statusSetDate: string;
+}
+
+export interface SavedVacancyEntry {
+  vacancy: Vacancy;
+  progress: ProgressEntry[];
+}
+
+export interface SavedVacanciesResponse {
+  items: SavedVacancyEntry[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
 }
 
 export interface VacancyListProps {

@@ -96,15 +96,15 @@ export default function VacancyDetail() {
   const { data: vacancy, isPending, isError, error } = useHhVacancy(id);
 
   // Saved vacancies state
-  const { data: savedVacancies } = useSavedVacancies(isAuthenticated);
+  const { data: savedData } = useSavedVacancies(undefined, isAuthenticated);
   const addVacancyMutation = useAddVacancy();
   const removeVacancyMutation = useRemoveVacancy();
 
   // Check if vacancy is saved
   const isSaved = useMemo(() => {
-    if (!savedVacancies || !id) return false;
-    return savedVacancies.some((v) => v.hhId === id || v._id === id);
-  }, [savedVacancies, id]);
+    if (!savedData?.items || !id) return false;
+    return savedData.items.some((entry) => entry.vacancy?.hhId === id);
+  }, [savedData, id]);
 
   // Handlers
   const handleBack = useCallback(() => {

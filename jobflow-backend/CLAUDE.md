@@ -39,7 +39,7 @@ jobflow-backend/
 │   ├── app.module.ts            # Root module
 │   └── main.ts                  # Bootstrap with global pipes/filters
 ├── test/
-│   ├── e2e/                     # E2E test suites (138 passing tests)
+│   ├── e2e/                     # E2E test suites (143 passing tests)
 │   │   ├── auth.e2e-spec.ts
 │   │   ├── users.e2e-spec.ts
 │   │   ├── vacancies.e2e-spec.ts
@@ -121,47 +121,60 @@ return { accessToken: '...', user: {...} };
   password: string (select: false, bcrypt hashed)
   firstName: string
   lastName: string
-  savedVacancies: ObjectId[] (refs to Vacancy, default: [])
+  savedVacancies: [{                    // Subdocument array
+    vacancy: ObjectId (ref 'Vacancy')   // Reference to permanently stored vacancy
+    progress: [{                        // Embedded progress history
+      status: VacancyProgressStatus     // 8 status values (saved, applied, etc.)
+      statusSetDate: Date
+    }]
+  }]
   isActive: boolean (default: true)
   createdAt: Date
   updatedAt: Date
 }
 ```
 
-### Vacancy Schema (Cached Data)
+### Vacancy Schema (Cached or Permanent)
 ```typescript
 {
   hhId: string (unique, from hh.ru API)
   name: string
   employer: {
-    id: string
-    name: string
-    url: string
-    logoUrls: object
-    trusted: boolean
+    id: string, name: string, url: string
+    logoUrls: object, trusted: boolean
+    accreditedItEmployer?: boolean
   }
-  salary: {
-    from: number
-    to: number
-    currency: string
-    gross: boolean
-  }
+  salary: { from: number, to: number, currency: string, gross: boolean }
   area: { id: string, name: string, url: string }
   description: string
   url: string
+  alternateUrl?: string                              // hh.ru human-readable URL
   schedule: { id: string, name: string }
   experience: { id: string, name: string }
   employment: { id: string, name: string }
+  keySkills?: [{ name: string }]                     // Required skills
+  professionalRoles?: [{ id: string, name: string }] // Job roles
+  address?: object                                    // Office location
+  contacts?: object                                   // Contact info
+  workFormat?: [{ id: string, name: string }]         // Remote/office/hybrid
+  workingHours?: [{ id: string, name: string }]       // Working hours type
+  workScheduleByDays?: [{ id: string, name: string }] // Work days schedule
+  acceptHandicapped?: boolean
+  acceptKids?: boolean
+  acceptTemporary?: boolean
+  acceptIncompleteResumes?: boolean
   publishedAt: Date
-  cacheExpiresAt: Date (TTL index, auto-deletes after 7 days)
+  cacheExpiresAt?: Date (TTL index — absent for saved vacancies, 7 days for cached)
 }
 
 // Indexes
 - hhId (unique)
 - area.id
 - salary.from
-- cacheExpiresAt (TTL)
+- cacheExpiresAt (TTL, sparse — documents without field are not deleted)
 ```
+
+**Save vs Cache**: When a user saves a vacancy, `cacheExpiresAt` is `$unset` (removed), making the document permanent. Search-cached vacancies have a 7-day TTL.
 
 ### VacancyProgress Schema
 ```typescript
@@ -198,9 +211,12 @@ return { accessToken: '...', user: {...} };
 ### Users (Protected)
 - `GET /users/me` - Get current user profile
 - `PUT /users/me` - Update profile (firstName, lastName, password)
-- `GET /users/me/vacancies` - Get saved vacancies (populated)
-- `POST /users/me/vacancies/:vacancyId` - Add vacancy to saved list
-- `DELETE /users/me/vacancies/:vacancyId` - Remove from saved list
+- `GET /users/me/vacancies` - List saved vacancies (paginated, filter by status, sort by date/name)
+- `GET /users/me/vacancies/:hhId` - Get saved vacancy detail with progress history
+- `POST /users/me/vacancies/:hhId` - Save vacancy (fetches from hh.ru, stores permanently in MongoDB)
+- `DELETE /users/me/vacancies/:hhId` - Remove from saved list
+- `POST /users/me/vacancies/:hhId/refresh` - Re-fetch vacancy data from hh.ru API
+- `PATCH /users/me/vacancies/:hhId/progress` - Update progress status (appends to progress history)
 
 ### Vacancies (Public)
 - `GET /vacancies/search` - Search vacancies on hh.ru API
@@ -221,10 +237,10 @@ return { accessToken: '...', user: {...} };
 
 ### Naming Patterns
 
-**Saved Vacancies API**:
-- Service methods: `getSavedVacancies()`, `addVacancy()`, `removeVacancy()`
-- Controller methods: `@Get('me/vacancies')`, `@Post('me/vacancies/:vacancyId')`
-- Use MongoDB operators: `$addToSet` (add), `$pull` (remove)
+**Saved Vacancies API** (all use hhId — the hh.ru vacancy ID string):
+- Service methods: `getSavedVacancies()`, `getSavedVacancyByHhId()`, `addVacancy()`, `removeVacancy()`, `updateVacancyProgress()`
+- Controller methods: `@Get('me/vacancies')`, `@Post('me/vacancies/:hhId')`, `@Patch('me/vacancies/:hhId/progress')`
+- MongoDB operators: `$push` (add subdocument), `$pull` (remove), `$unset` (remove TTL)
 
 **VacancyProgress (NOT "Application")**:
 - Always use `VacancyProgress` in code (files, classes, routes, functions)
@@ -266,27 +282,37 @@ export class RegisterDto {
 - Use `.populate('vacancyId')` to include vacancy details
 - Use `.populate('userId', 'firstName lastName email')` for user data
 
-**MongoDB Operators**:
+**MongoDB Operators for Saved Vacancies**:
 ```typescript
-// Add to array (no duplicates)
-await this.userModel.findByIdAndUpdate(
-  userId,
-  { $addToSet: { savedVacancies: vacancyId } },
-  { new: true }
+// Add subdocument to savedVacancies array
+await this.userModel.findByIdAndUpdate(userId, {
+  $push: {
+    savedVacancies: {
+      vacancy: vacancyObjectId,
+      progress: [{ status: 'saved', statusSetDate: new Date() }]
+    }
+  }
+});
+
+// Remove subdocument from array
+await this.userModel.findByIdAndUpdate(userId, {
+  $pull: { savedVacancies: { vacancy: vacancyObjectId } }
+});
+
+// Update progress (push new status entry)
+await this.userModel.updateOne(
+  { _id: userId, 'savedVacancies.vacancy': vacancyObjectId },
+  { $push: { 'savedVacancies.$.progress': { status, statusSetDate: new Date() } } }
 );
 
-// Remove from array
-await this.userModel.findByIdAndUpdate(
-  userId,
-  { $pull: { savedVacancies: vacancyId } },
-  { new: true }
-);
+// Make vacancy permanent (remove TTL)
+await this.vacancyModel.updateOne({ _id: id }, { $unset: { cacheExpiresAt: 1 } });
 ```
 
 ## 🧪 Testing
 
 ### Test Structure
-- **E2E Tests**: 138 passing tests across 5 test files
+- **E2E Tests**: 143 passing tests across 5 test files
 - **Test Database**: Uses separate database (cleaned between tests)
 - **Test Helpers**:
   - `AuthHelper` - Registers/logs in test users, provides auth headers

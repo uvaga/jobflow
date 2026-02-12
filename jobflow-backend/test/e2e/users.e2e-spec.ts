@@ -192,52 +192,39 @@ describe('Users (e2e)', () => {
   });
 
   describe('Saved Vacancies Management', () => {
-    let vacancyId: string;
+    const hhId = '100000001'; // Mock vacancy hh.ru ID
 
-    beforeEach(async () => {
-      // Use mock vacancy data (MockHhApiService provides this)
-      const hhId = '100000001'; // Mock vacancy ID from MockHhApiService
-
-      // Get the vacancy details which creates it in our DB
-      const vacancyResponse = await request(app.getHttpServer())
-        .get(`/api/v1/vacancies/${hhId}`)
-        .expect(200);
-
-      vacancyId = vacancyResponse.body.data._id;
-    });
-
-    describe('POST /api/v1/users/me/vacancies/:vacancyId', () => {
-      it('should add vacancy to saved list', async () => {
+    describe('POST /api/v1/users/me/vacancies/:hhId', () => {
+      it('should save vacancy (fetches from hh.ru and adds to user)', async () => {
         const response = await request(app.getHttpServer())
-          .post(`/api/v1/users/me/vacancies/${vacancyId}`)
+          .post(`/api/v1/users/me/vacancies/${hhId}`)
           .set('Authorization', `Bearer ${authToken}`)
           .expect(200);
 
-        expect(response.body.data.savedVacancies).toContain(vacancyId);
+        expect(response.body.data.savedVacancies).toHaveLength(1);
+        expect(response.body.data.savedVacancies[0]).toHaveProperty('vacancy');
+        expect(response.body.data.savedVacancies[0]).toHaveProperty('progress');
+        expect(response.body.data.savedVacancies[0].progress).toHaveLength(1);
+        expect(response.body.data.savedVacancies[0].progress[0].status).toBe('saved');
       });
 
       it('should not duplicate if already saved', async () => {
-        // Add first time
         await request(app.getHttpServer())
-          .post(`/api/v1/users/me/vacancies/${vacancyId}`)
+          .post(`/api/v1/users/me/vacancies/${hhId}`)
           .set('Authorization', `Bearer ${authToken}`)
           .expect(200);
 
-        // Add second time
         const response = await request(app.getHttpServer())
-          .post(`/api/v1/users/me/vacancies/${vacancyId}`)
+          .post(`/api/v1/users/me/vacancies/${hhId}`)
           .set('Authorization', `Bearer ${authToken}`)
           .expect(200);
 
-        const count = response.body.data.savedVacancies.filter(
-          (id) => id === vacancyId,
-        ).length;
-        expect(count).toBe(1);
+        expect(response.body.data.savedVacancies).toHaveLength(1);
       });
 
       it('should return updated user with savedVacancies', async () => {
         const response = await request(app.getHttpServer())
-          .post(`/api/v1/users/me/vacancies/${vacancyId}`)
+          .post(`/api/v1/users/me/vacancies/${hhId}`)
           .set('Authorization', `Bearer ${authToken}`)
           .expect(200);
 
@@ -248,36 +235,44 @@ describe('Users (e2e)', () => {
 
       it('should fail without auth token (401)', async () => {
         await request(app.getHttpServer())
-          .post(`/api/v1/users/me/vacancies/${vacancyId}`)
+          .post(`/api/v1/users/me/vacancies/${hhId}`)
           .expect(401);
       });
     });
 
     describe('GET /api/v1/users/me/vacancies', () => {
-      it('should return empty array initially', async () => {
+      it('should return empty list initially', async () => {
         const response = await request(app.getHttpServer())
           .get('/api/v1/users/me/vacancies')
           .set('Authorization', `Bearer ${authToken}`)
           .expect(200);
 
-        expect(response.body.data).toEqual([]);
+        expect(response.body.data).toHaveProperty('items');
+        expect(response.body.data.items).toHaveLength(0);
+        expect(response.body.data.total).toBe(0);
       });
 
-      it('should return saved vacancies', async () => {
-        // Save a vacancy first
+      it('should return saved vacancies with pagination', async () => {
         await request(app.getHttpServer())
-          .post(`/api/v1/users/me/vacancies/${vacancyId}`)
+          .post(`/api/v1/users/me/vacancies/${hhId}`)
           .set('Authorization', `Bearer ${authToken}`)
           .expect(200);
 
-        // Get saved vacancies
         const response = await request(app.getHttpServer())
           .get('/api/v1/users/me/vacancies')
           .set('Authorization', `Bearer ${authToken}`)
           .expect(200);
 
-        expect(Array.isArray(response.body.data)).toBe(true);
-        expect(response.body.data.length).toBeGreaterThan(0);
+        expect(response.body.data.items).toHaveLength(1);
+        expect(response.body.data.total).toBe(1);
+        expect(response.body.data).toHaveProperty('page');
+        expect(response.body.data).toHaveProperty('limit');
+        expect(response.body.data).toHaveProperty('totalPages');
+        // Check populated vacancy data
+        const item = response.body.data.items[0];
+        expect(item.vacancy).toHaveProperty('name');
+        expect(item.vacancy).toHaveProperty('hhId');
+        expect(item.progress).toHaveLength(1);
       });
 
       it('should fail without auth token (401)', async () => {
@@ -287,27 +282,100 @@ describe('Users (e2e)', () => {
       });
     });
 
-    describe('DELETE /api/v1/users/me/vacancies/:vacancyId', () => {
-      beforeEach(async () => {
-        // Save a vacancy before deletion tests
+    describe('GET /api/v1/users/me/vacancies/:hhId', () => {
+      it('should return saved vacancy detail', async () => {
         await request(app.getHttpServer())
-          .post(`/api/v1/users/me/vacancies/${vacancyId}`)
+          .post(`/api/v1/users/me/vacancies/${hhId}`)
+          .set('Authorization', `Bearer ${authToken}`)
+          .expect(200);
+
+        const response = await request(app.getHttpServer())
+          .get(`/api/v1/users/me/vacancies/${hhId}`)
+          .set('Authorization', `Bearer ${authToken}`)
+          .expect(200);
+
+        expect(response.body.data).toHaveProperty('vacancy');
+        expect(response.body.data).toHaveProperty('progress');
+        expect(response.body.data.vacancy.hhId).toBe(hhId);
+      });
+
+      it('should return 404 for unsaved vacancy', async () => {
+        await request(app.getHttpServer())
+          .get(`/api/v1/users/me/vacancies/${hhId}`)
+          .set('Authorization', `Bearer ${authToken}`)
+          .expect(404);
+      });
+    });
+
+    describe('PATCH /api/v1/users/me/vacancies/:hhId/progress', () => {
+      it('should update progress status', async () => {
+        await request(app.getHttpServer())
+          .post(`/api/v1/users/me/vacancies/${hhId}`)
+          .set('Authorization', `Bearer ${authToken}`)
+          .expect(200);
+
+        const response = await request(app.getHttpServer())
+          .patch(`/api/v1/users/me/vacancies/${hhId}/progress`)
+          .set('Authorization', `Bearer ${authToken}`)
+          .send({ status: 'applied' })
+          .expect(200);
+
+        expect(response.body.data.progress).toHaveLength(2);
+        expect(response.body.data.progress[1].status).toBe('applied');
+      });
+
+      it('should fail with invalid status', async () => {
+        await request(app.getHttpServer())
+          .post(`/api/v1/users/me/vacancies/${hhId}`)
+          .set('Authorization', `Bearer ${authToken}`)
+          .expect(200);
+
+        await request(app.getHttpServer())
+          .patch(`/api/v1/users/me/vacancies/${hhId}/progress`)
+          .set('Authorization', `Bearer ${authToken}`)
+          .send({ status: 'invalid_status' })
+          .expect(400);
+      });
+    });
+
+    describe('POST /api/v1/users/me/vacancies/:hhId/refresh', () => {
+      it('should refresh vacancy from hh.ru', async () => {
+        await request(app.getHttpServer())
+          .post(`/api/v1/users/me/vacancies/${hhId}`)
+          .set('Authorization', `Bearer ${authToken}`)
+          .expect(200);
+
+        const response = await request(app.getHttpServer())
+          .post(`/api/v1/users/me/vacancies/${hhId}/refresh`)
+          .set('Authorization', `Bearer ${authToken}`)
+          .expect(200);
+
+        expect(response.body.data).toHaveProperty('hhId');
+        expect(response.body.data.hhId).toBe(hhId);
+        expect(response.body.data).toHaveProperty('updatedAt');
+      });
+    });
+
+    describe('DELETE /api/v1/users/me/vacancies/:hhId', () => {
+      beforeEach(async () => {
+        await request(app.getHttpServer())
+          .post(`/api/v1/users/me/vacancies/${hhId}`)
           .set('Authorization', `Bearer ${authToken}`)
           .expect(200);
       });
 
       it('should remove vacancy from saved list', async () => {
         const response = await request(app.getHttpServer())
-          .delete(`/api/v1/users/me/vacancies/${vacancyId}`)
+          .delete(`/api/v1/users/me/vacancies/${hhId}`)
           .set('Authorization', `Bearer ${authToken}`)
           .expect(200);
 
-        expect(response.body.data.savedVacancies).not.toContain(vacancyId);
+        expect(response.body.data.savedVacancies).toHaveLength(0);
       });
 
       it('should return updated user', async () => {
         const response = await request(app.getHttpServer())
-          .delete(`/api/v1/users/me/vacancies/${vacancyId}`)
+          .delete(`/api/v1/users/me/vacancies/${hhId}`)
           .set('Authorization', `Bearer ${authToken}`)
           .expect(200);
 
@@ -316,22 +384,21 @@ describe('Users (e2e)', () => {
       });
 
       it('should be idempotent (no error if already removed)', async () => {
-        // Remove first time
         await request(app.getHttpServer())
-          .delete(`/api/v1/users/me/vacancies/${vacancyId}`)
+          .delete(`/api/v1/users/me/vacancies/${hhId}`)
           .set('Authorization', `Bearer ${authToken}`)
           .expect(200);
 
-        // Remove second time
+        // removeVacancy looks up by hhId - vacancy still exists in DB
         await request(app.getHttpServer())
-          .delete(`/api/v1/users/me/vacancies/${vacancyId}`)
+          .delete(`/api/v1/users/me/vacancies/${hhId}`)
           .set('Authorization', `Bearer ${authToken}`)
           .expect(200);
       });
 
       it('should fail without auth token (401)', async () => {
         await request(app.getHttpServer())
-          .delete(`/api/v1/users/me/vacancies/${vacancyId}`)
+          .delete(`/api/v1/users/me/vacancies/${hhId}`)
           .expect(401);
       });
     });
@@ -339,24 +406,20 @@ describe('Users (e2e)', () => {
 
   describe('User Isolation', () => {
     it('should not allow user to access another user\'s profile', async () => {
-      // Create second user
       const { token: token2 } = await authHelper.registerAndLogin(
         testUsers.anotherUser,
       );
 
-      // First user's profile
       const response1 = await request(app.getHttpServer())
         .get('/api/v1/users/me')
         .set('Authorization', `Bearer ${authToken}`)
         .expect(200);
 
-      // Second user's profile
       const response2 = await request(app.getHttpServer())
         .get('/api/v1/users/me')
         .set('Authorization', `Bearer ${token2}`)
         .expect(200);
 
-      // Should be different users
       expect(response1.body.data._id).not.toBe(response2.body.data._id);
       expect(response1.body.data.email).not.toBe(response2.body.data.email);
     });

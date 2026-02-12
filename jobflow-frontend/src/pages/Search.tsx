@@ -89,15 +89,15 @@ export default function Search() {
   const { data, isLoading, isFetching, error } = useHhVacancySearch(apiSearchParams, shouldSearch);
 
   // Fetch saved vacancies (for authenticated users only)
-  const { data: savedVacancies } = useSavedVacancies(isAuthenticated);
+  const { data: savedData } = useSavedVacancies(undefined, isAuthenticated);
   const addVacancyMutation = useAddVacancy();
   const removeVacancyMutation = useRemoveVacancy();
 
-  // Set of saved vacancy IDs for O(1) lookup
+  // Set of saved vacancy hhIds for O(1) lookup
   const savedVacancyIds = useMemo(() => {
-    if (!savedVacancies) return new Set<string>();
-    return new Set(savedVacancies.map((v) => v.hhId || v._id));
-  }, [savedVacancies]);
+    if (!savedData?.items) return new Set<string>();
+    return new Set(savedData.items.map((entry) => entry.vacancy?.hhId).filter(Boolean) as string[]);
+  }, [savedData]);
 
   // Handlers
   const handleSearchChange = useCallback((text: string) => {

@@ -72,7 +72,7 @@ npm run db:status          # Check MongoDB container status
 **Backend**: NestJS 11, TypeScript 5.7, Mongoose 9, class-validator, Passport JWT
 **Frontend**: React 19, TypeScript 5.9, Vite 7, MUI 7, React Query 5, Zustand 5, Formik, Yup
 **Database**: MongoDB 4.4 (Docker)
-**Testing**: Jest (backend), Supertest (e2e tests - 138 passing)
+**Testing**: Jest (backend), Supertest (e2e tests - 143 passing)
 
 ## 🗄️ Database Access
 
@@ -90,9 +90,9 @@ docker exec -it jobflow-mongodb mongosh -u jobflow_user -p jobflow_dev_password 
 ```
 
 **Database Collections**:
-- `users` - User accounts and profiles
-- `vacancies` - Cached vacancy data from hh.ru API (with TTL index, auto-deletes after 7 days)
-- `vacancyprogresses` - User's job application tracking (8 status stages)
+- `users` - User accounts, profiles, and saved vacancies with embedded progress tracking
+- `vacancies` - Vacancy data from hh.ru API (cached with 7-day TTL, or permanent when saved by user)
+- `vacancyprogresses` - User's job application tracking (8 status stages, legacy — new progress is embedded in user.savedVacancies)
 
 ## 📝 Current Implementation Status
 
@@ -108,29 +108,34 @@ docker exec -it jobflow-mongodb mongosh -u jobflow_user -p jobflow_dev_password 
 - Secure password hashing with bcrypt (10 rounds)
 - Frontend Zustand store with localStorage persistence
 
-**Backend Modules** (4 modules, 138 passing e2e tests):
+**Backend Modules** (4 modules, 143 passing e2e tests):
 - **Auth Module**: Register, login, refresh, logout endpoints
   - Dual JWT strategies (access + refresh with different secrets)
   - RefreshTokenGuard for token rotation
   - Password validation (min 8 chars, uppercase + lowercase + number)
 
-- **Users Module**: Profile management and saved vacancies
+- **Users Module**: Profile management and saved vacancies with embedded progress
   - GET/PUT `/users/me` - Profile CRUD
-  - GET/POST/DELETE `/users/me/vacancies/:id` - Saved vacancies management
-  - MongoDB `$addToSet` and `$pull` operators for array management
+  - GET `/users/me/vacancies` - List saved vacancies (paginated, filterable by status, sortable)
+  - GET `/users/me/vacancies/:hhId` - Get saved vacancy detail with progress history
+  - POST `/users/me/vacancies/:hhId` - Save vacancy (fetches from hh.ru, stores permanently)
+  - DELETE `/users/me/vacancies/:hhId` - Remove from saved list
+  - POST `/users/me/vacancies/:hhId/refresh` - Re-fetch vacancy data from hh.ru
+  - PATCH `/users/me/vacancies/:hhId/progress` - Update progress status
+  - Saved vacancies use subdocument array with embedded progress tracking
 
 - **Vacancies Module**: hh.ru API integration
   - GET `/vacancies/search` - Search with filters and pagination
   - GET `/vacancies/dictionaries` - Reference data (areas, schedules, etc.)
   - GET `/vacancies/:id` - Individual vacancy with 7-day caching
+  - `saveVacancyFromHh()` - Fetch from hh.ru and store permanently (no TTL)
+  - `refreshVacancyFromHh()` - Re-fetch and update existing saved vacancy
   - Custom HhApiService for external API calls
 
-- **VacancyProgress Module**: Job application tracking
+- **VacancyProgress Module**: Job application tracking (legacy)
   - Full CRUD operations with user isolation
   - Status enum: SAVED, APPLIED, INTERVIEW_SCHEDULED, INTERVIEW_COMPLETED, REJECTED, OFFER_RECEIVED, OFFER_ACCEPTED, WITHDRAWN
-  - Statistics endpoint (counts by status)
-  - Filtering and pagination support
-  - Notes, tags, priority, interview date fields
+  - Note: New progress tracking is embedded in user.savedVacancies subdocuments
 
 **Frontend Pages**:
 - **Home**: Landing page
@@ -138,10 +143,20 @@ docker exec -it jobflow-mongodb mongosh -u jobflow_user -p jobflow_dev_password 
 - **Search**: Main vacancy search with filters, pagination, full-width responsive design
   - Public page - accessible without authentication
   - Save button only visible for authenticated users
-  - Filter panel (accordion-based): Salary, Experience, Schedule, Employment
+  - Filter panel (accordion-based, lazy-loading): Location, Salary, Experience, Schedule, Employment, Professional Role, Industry
   - Vacancy cards in responsive grid (1/2/3 columns)
-  - Debounced search input (500ms)
+  - Debounced search input (300ms)
   - Loading/error/empty states
+- **Vacancy Detail** (`/vacancy/:id`): Public vacancy detail page from hh.ru API
+- **Saved Vacancies** (`/vacancies`): Protected list of user's saved vacancies
+  - Filter by progress status, sort by date/name
+  - VacancyCard grid with progress status chips
+  - Pagination, loading/error/empty states
+- **Saved Vacancy Detail** (`/vacancies/:id`): Protected saved vacancy detail
+  - Full vacancy info from MongoDB (permanently stored)
+  - Progress status management (update, view history)
+  - Refresh from hh.ru, remove from saved
+  - Key skills, description, additional info sections
 
 **Frontend Infrastructure**:
 - **State Management**: Zustand for auth (persisted), React Query for server state
@@ -150,33 +165,35 @@ docker exec -it jobflow-mongodb mongosh -u jobflow_user -p jobflow_dev_password 
   - Response interceptor: Automatic token refresh on 401 with request queuing
   - Unwraps backend TransformInterceptor wrapper (`response.data.data`)
 - **Routing**: React Router with protected routes
-  - Public routes: /, /search, /login, /register
-  - Protected routes: /saved, /vacancy-progress, /profile
+  - Public routes: /, /search, /vacancy/:id, /login, /register
+  - Protected routes: /vacancies, /vacancies/:id, /vacancy-progress, /profile
 - **Components**: Reusable library
   - Layout: Header (with user menu), Footer, ProtectedRoute
-  - Features: VacancyList, VacancyCard, FilterPanel
+  - Features: VacancyList, VacancyCard, FilterPanel, ProgressStatusChip
   - Common: SearchBar, Pagination, LoadingSpinner, ErrorDisplay
 - **Forms**: Formik + Yup for all form validation
 - **UI**: Material-UI 7 with custom theme, responsive design
 - **Hooks**: Custom React Query hooks with query key factory pattern
+- **Notifications**: notistack for toast notifications
 
 ### 🚧 Placeholder Pages (Future Implementation)
-- Vacancy detail page (`/vacancy/:id`)
-- Saved vacancies list page (`/saved`)
 - Vacancy progress tracking page (`/vacancy-progress`)
 - User profile management page (`/profile`)
 
 ## 🔑 Key Conventions
 
 ### API Naming Convention
-**Backend uses specific method names for saved vacancies**:
-- `getSavedVacancies()` → GET `/api/v1/users/me/vacancies`
-- `addVacancy()` → POST `/api/v1/users/me/vacancies/:vacancyId`
-- `removeVacancy()` → DELETE `/api/v1/users/me/vacancies/:vacancyId`
+**Saved vacancies endpoints use hhId (hh.ru vacancy ID string)**:
+- `getSavedVacancies()` → GET `/api/v1/users/me/vacancies` (paginated, filterable)
+- `getSavedVacancyByHhId()` → GET `/api/v1/users/me/vacancies/:hhId`
+- `addVacancy()` → POST `/api/v1/users/me/vacancies/:hhId` (fetches from hh.ru)
+- `removeVacancy()` → DELETE `/api/v1/users/me/vacancies/:hhId`
+- `refreshVacancy()` → POST `/api/v1/users/me/vacancies/:hhId/refresh`
+- `updateVacancyProgress()` → PATCH `/api/v1/users/me/vacancies/:hhId/progress`
 
 **Frontend must match**:
-- Service functions: `fetchSavedVacancies()`, `addVacancy()`, `removeVacancy()`
-- Hooks: `useSavedVacancies()`, `useAddVacancy()`, `useRemoveVacancy()`
+- Service functions: `fetchSavedVacancies()`, `fetchSavedVacancyDetail()`, `addVacancy()`, `removeVacancy()`, `refreshSavedVacancy()`, `updateVacancyProgress()`
+- Hooks: `useSavedVacancies()`, `useSavedVacancyDetail()`, `useAddVacancy()`, `useRemoveVacancy()`, `useRefreshSavedVacancy()`, `useUpdateSavedVacancyProgress()`
 
 ### VacancyProgress Terminology
 - The schema for tracking job applications is called `VacancyProgress` (NOT "Application")
@@ -228,7 +245,7 @@ VITE_API_BASE_URL=/api/v1
 - Backend wraps all responses in `{ data: {...} }` via TransformInterceptor
 - Frontend automatically refreshes tokens on 401 errors with request queuing
 - React Query DevTools available in development mode
-- 138 passing e2e tests on backend ensuring API stability
+- 143 passing e2e tests on backend ensuring API stability
 - The project uses conventional commits for git history
 
 ## 🔗 Important Files

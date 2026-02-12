@@ -1,7 +1,36 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
+import { VacancyProgressStatus } from '../../vacancy-progress/enums/vacancy-progress-status.enum';
 
 export type UserDocument = User & Document;
+
+@Schema({ _id: false })
+export class ProgressEntry {
+  @Prop({
+    type: String,
+    enum: Object.values(VacancyProgressStatus),
+    required: true,
+  })
+  status: string;
+
+  @Prop({ type: Date, required: true })
+  statusSetDate: Date;
+}
+
+export const ProgressEntrySchema =
+  SchemaFactory.createForClass(ProgressEntry);
+
+@Schema({ _id: false })
+export class SavedVacancyEntry {
+  @Prop({ type: Types.ObjectId, ref: 'Vacancy', required: true })
+  vacancy: Types.ObjectId;
+
+  @Prop({ type: [ProgressEntrySchema], default: [] })
+  progress: ProgressEntry[];
+}
+
+export const SavedVacancyEntrySchema =
+  SchemaFactory.createForClass(SavedVacancyEntry);
 
 @Schema({ timestamps: true })
 export class User extends Document {
@@ -27,10 +56,10 @@ export class User extends Document {
   lastName: string;
 
   @Prop({
-    type: [{ type: Types.ObjectId, ref: 'Vacancy' }],
+    type: [SavedVacancyEntrySchema],
     default: [],
   })
-  savedVacancies: Types.ObjectId[];
+  savedVacancies: SavedVacancyEntry[];
 
   @Prop({ default: true })
   isActive: boolean;

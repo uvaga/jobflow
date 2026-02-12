@@ -23,7 +23,9 @@ export class Vacancy extends Document {
     name: string;
     url?: string;
     logoUrls?: Record<string, string>;
+    alternateUrl?: string;
     trusted: boolean;
+    accreditedItEmployer?: boolean;
   };
 
   @Prop({
@@ -51,6 +53,9 @@ export class Vacancy extends Document {
   url: string;
 
   @Prop()
+  alternateUrl: string;
+
+  @Prop()
   description: string;
 
   @Prop({ type: Object })
@@ -71,14 +76,55 @@ export class Vacancy extends Document {
     name: string;
   };
 
+  @Prop({ type: [Object] })
+  keySkills?: { name: string }[];
+
+  @Prop({ type: [Object] })
+  professionalRoles?: { id: string; name: string }[];
+
+  @Prop({ type: Object })
+  address?: {
+    city?: string;
+    street?: string;
+    building?: string;
+    raw?: string;
+    lat?: number;
+    lng?: number;
+  };
+
+  @Prop({ type: Object })
+  contacts?: {
+    name?: string;
+    email?: string;
+    phones?: { city?: string; number?: string; comment?: string }[];
+  };
+
+  @Prop({ type: [Object] })
+  workFormat?: { id: string; name: string }[];
+
+  @Prop({ type: [Object] })
+  workingHours?: { id: string; name: string }[];
+
+  @Prop({ type: [Object] })
+  workScheduleByDays?: { id: string; name: string }[];
+
+  @Prop()
+  acceptHandicapped?: boolean;
+
+  @Prop()
+  acceptKids?: boolean;
+
+  @Prop()
+  acceptTemporary?: boolean;
+
+  @Prop()
+  acceptIncompleteResumes?: boolean;
+
   @Prop({ type: Date })
   publishedAt: Date;
 
-  @Prop({
-    type: Date,
-    default: () => new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days from now
-  })
-  cacheExpiresAt: Date;
+  @Prop({ type: Date })
+  cacheExpiresAt?: Date;
 
   createdAt: Date;
 
@@ -91,4 +137,5 @@ export const VacancySchema = SchemaFactory.createForClass(Vacancy);
 VacancySchema.index({ 'area.id': 1, 'salary.from': 1 });
 
 // TTL index for automatic cache expiration
+// Documents without cacheExpiresAt field are permanent (not deleted by TTL)
 VacancySchema.index({ cacheExpiresAt: 1 }, { expireAfterSeconds: 0 });

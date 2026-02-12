@@ -41,7 +41,8 @@
       "WebSearch",
       "WebFetch(domain:tanstack.com)",
       "Bash(powershell -Command:*)",
-      "mcp__playwright__browser_run_code"
+      "mcp__playwright__browser_run_code",
+      "mcp__playwright__browser_fill_form"
     ]
   }
 }

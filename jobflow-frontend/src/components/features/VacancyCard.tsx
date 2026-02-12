@@ -17,6 +17,7 @@ import BusinessIcon from '@mui/icons-material/Business';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
 import WorkIcon from '@mui/icons-material/Work';
 import ScheduleIcon from '@mui/icons-material/Schedule';
+import ProgressStatusChip from './ProgressStatusChip';
 
 // Vacancy type that supports both hh.ru API and MongoDB formats
 interface VacancyCardVacancy {
@@ -66,6 +67,10 @@ interface VacancyCardProps {
   showSaveButton?: boolean;
   isSaved?: boolean;
   onSave?: (vacancyId: string) => void;
+  progressStatus?: string;
+  savedDate?: string;
+  /** Use hhId for navigation instead of vacancy id/hhId */
+  hhId?: string;
 }
 
 // Format salary display
@@ -113,9 +118,12 @@ function VacancyCard({
   showSaveButton = true,
   isSaved = false,
   onSave,
+  progressStatus,
+  savedDate,
+  hhId,
 }: VacancyCardProps) {
-  // Support both id and _id
-  const vacancyId = vacancy.id || vacancy._id || '';
+  // Support both id and _id, prefer hhId prop for navigation
+  const vacancyId = hhId || vacancy.id || vacancy._id || '';
 
   // Support both published_at and publishedAt
   const publishedDate = vacancy.published_at || vacancy.publishedAt;
@@ -152,6 +160,13 @@ function VacancyCard({
       onClick={handleCardClick}
     >
       <CardContent sx={{ flexGrow: 1, pb: 1 }}>
+        {/* Progress Status */}
+        {progressStatus && (
+          <Box sx={{ mb: 1 }}>
+            <ProgressStatusChip status={progressStatus} />
+          </Box>
+        )}
+
         {/* Header: Title and Save Button */}
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
           <Typography variant="h6" component="h3" sx={{ flexGrow: 1, pr: 1 }}>
@@ -234,7 +249,7 @@ function VacancyCard({
 
       <CardActions sx={{ px: 2, py: 1.5, bgcolor: 'grey.50' }}>
         <Typography variant="caption" color="text.secondary" sx={{ flexGrow: 1 }}>
-          {publishedText && `Published ${publishedText}`}
+          {savedDate ? `Saved ${formatDate(savedDate)}` : publishedText && `Published ${publishedText}`}
         </Typography>
         {onClick && (
           <Button size="small" variant="text">

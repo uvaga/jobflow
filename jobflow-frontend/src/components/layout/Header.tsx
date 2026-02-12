@@ -72,7 +72,7 @@ export default function Header() {
               <>
                 <Button
                   component={RouterLink}
-                  to="/saved"
+                  to="/vacancies"
                   sx={{ color: 'white' }}
                 >
                   Saved

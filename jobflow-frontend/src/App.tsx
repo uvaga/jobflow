@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { CssBaseline, ThemeProvider, createTheme } from '@mui/material';
+import { SnackbarProvider } from 'notistack';
 
 // Layout components
 import Layout from './components/layout/Layout';
@@ -10,6 +11,7 @@ import Home from './pages/Home';
 import Search from './pages/Search';
 import VacancyDetail from './pages/VacancyDetail';
 import SavedVacancies from './pages/SavedVacancies';
+import SavedVacancyDetail from './pages/SavedVacancyDetail';
 import VacancyProgress from './pages/VacancyProgress';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -52,32 +54,40 @@ const theme = createTheme({
 function App() {
   return (
     <ThemeProvider theme={theme}>
-      <CssBaseline />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Layout />}>
-            {/* Public routes */}
-            <Route index element={<Home />} />
-            <Route path="search" element={<Search />} />
-            <Route path="vacancy/:id" element={<VacancyDetail />} />
-            <Route path="test-components" element={<ComponentTest />} />
+      <SnackbarProvider
+        maxSnack={3}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        autoHideDuration={3000}
+        preventDuplicate
+      >
+        <CssBaseline />
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<Layout />}>
+              {/* Public routes */}
+              <Route index element={<Home />} />
+              <Route path="search" element={<Search />} />
+              <Route path="vacancy/:id" element={<VacancyDetail />} />
+              <Route path="test-components" element={<ComponentTest />} />
 
-            {/* Auth routes */}
-            <Route path="login" element={<Login />} />
-            <Route path="register" element={<Register />} />
+              {/* Auth routes */}
+              <Route path="login" element={<Login />} />
+              <Route path="register" element={<Register />} />
 
-            {/* Protected routes */}
-            <Route element={<ProtectedRoute />}>
-              <Route path="saved" element={<SavedVacancies />} />
-              <Route path="vacancy-progress" element={<VacancyProgress />} />
-              <Route path="profile" element={<Profile />} />
+              {/* Protected routes */}
+              <Route element={<ProtectedRoute />}>
+                <Route path="vacancies" element={<SavedVacancies />} />
+                <Route path="vacancies/:id" element={<SavedVacancyDetail />} />
+                <Route path="vacancy-progress" element={<VacancyProgress />} />
+                <Route path="profile" element={<Profile />} />
+              </Route>
+
+              {/* Catch all - redirect to home */}
+              <Route path="*" element={<Navigate to="/" replace />} />
             </Route>
-
-            {/* Catch all - redirect to home */}
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Route>
-        </Routes>
-      </BrowserRouter>
+          </Routes>
+        </BrowserRouter>
+      </SnackbarProvider>
     </ThemeProvider>
   );
 }

@@ -163,7 +163,8 @@ const handleSubmit = useCallback(async (values: FormValues) => {
 | `/vacancy/:id` | VacancyDetail | Public | Vacancy details page |
 | `/login` | Login | Public | User login |
 | `/register` | Register | Public | User registration |
-| `/saved` | SavedVacancies | Protected | User's saved vacancies |
+| `/vacancies` | SavedVacancies | Protected | User's saved vacancies (filterable, sortable) |
+| `/vacancies/:id` | SavedVacancyDetail | Protected | Saved vacancy detail with progress management |
 | `/vacancy-progress` | VacancyProgress | Protected | Job application tracking |
 | `/profile` | Profile | Protected | User profile management |
 | `/test-components` | ComponentTest | Public | Component testing page (dev) |
@@ -183,7 +184,8 @@ const handleSubmit = useCallback(async (values: FormValues) => {
 
   {/* Protected routes (wrapped with ProtectedRoute) */}
   <Route element={<ProtectedRoute />}>
-    <Route path="saved" element={<SavedVacancies />} />
+    <Route path="vacancies" element={<SavedVacancies />} />
+    <Route path="vacancies/:id" element={<SavedVacancyDetail />} />
     <Route path="vacancy-progress" element={<VacancyProgress />} />
   </Route>
 </Route>
@@ -240,7 +242,13 @@ const handleSubmit = useCallback(async (values: FormValues) => {
 - Displays single vacancy with employer logo, title, salary, location
 - Optional save/unsave button (authenticated users only)
 - Optional click handler for navigation
-- Props: `vacancy`, `onClick`, `showSaveButton`, `isSaved`, `onSave`
+- Optional progress status chip and saved date display
+- Props: `vacancy`, `onClick`, `showSaveButton`, `isSaved`, `onSave`, `hhId?`, `progressStatus?`, `savedDate?`
+
+**ProgressStatusChip**
+- Maps VacancyProgressStatus to colored MUI Chip components
+- Colors: saved=grey, applied=blue, interview=orange, completed=info, rejected=red, offer=green, accepted=green, withdrawn=grey
+- Props: `status` (VacancyProgressStatus)
 
 **VacancyList**
 - Renders grid of VacancyCard components (1/2/3 columns responsive)
@@ -309,17 +317,32 @@ const handleSubmit = useCallback(async (values: FormValues) => {
   - Save/unsave vacancies (authenticated users)
   - Responsive design (mobile drawer, desktop sidebar)
 
-### Placeholder Pages
-
 **VacancyDetail** (`src/pages/VacancyDetail.tsx`)
-- Reads vacancy ID from route params
-- Should display full vacancy information
-- **TODO**: Implement with useVacancy hook
+- Public page showing vacancy from hh.ru API (via backend cache)
+- Uses `useVacancy(id)` hook
+- Save/unsave button for authenticated users
+- Full description with HTML rendering, salary, location, employer info
 
-**SavedVacancies** (`src/pages/SavedVacancies.tsx`)
-- Protected route (authentication required)
-- Should list user's saved vacancies
-- **TODO**: Implement with useSavedVacancies hook + VacancyList
+**SavedVacancies** (`src/pages/SavedVacancies.tsx`) **Fully Implemented**
+- Protected route showing user's saved vacancies from MongoDB
+- **URL-driven state** via `useSearchParams` (same pattern as Search page)
+- **Filters**: Progress status dropdown (8 statuses + "All")
+- **Sort**: By saved date (newest/oldest) or name (A-Z/Z-A)
+- **Pagination** with smooth scroll to top
+- Uses `useSavedVacancies(params)` hook
+- VacancyCard grid with ProgressStatusChip and saved date
+- Click navigates to `/vacancies/:hhId` (saved vacancy detail)
+- Loading skeletons, error/empty states
+
+**SavedVacancyDetail** (`src/pages/SavedVacancyDetail.tsx`) **Fully Implemented**
+- Protected route showing saved vacancy detail from MongoDB
+- Uses `useSavedVacancyDetail(hhId)` hook
+- **Sections**: Header (status chip, employer, salary, location, work format), Action buttons, Dates, Progress, Key Skills, Description, Additional Info
+- **Progress management**: Status update dropdown, progress history timeline
+- **Actions**: View on hh.ru, Refresh from hh.ru, Remove from Saved
+- **Dates**: Saved date, Last updated, Published
+
+### Placeholder Pages
 
 **VacancyProgress** (`src/pages/VacancyProgress.tsx`)
 - Protected route (authentication required)
@@ -375,20 +398,36 @@ const handleSubmit = useCallback(async (values: FormValues) => {
 - Returns: `PaginatedResponse<Vacancy>`
 - Uses `placeholderData` to keep old data during loading
 
-**useSavedVacancies(enabled)**
+**useSavedVacancies(params?, enabled?)**
 - Query for user's saved vacancies (requires authentication)
-- Returns: `Vacancy[]`
+- Accepts `SavedVacanciesParams` for filtering (status), sorting (savedDate/name), pagination
+- Returns: `SavedVacanciesResponse` `{ items: SavedVacancyEntry[], total, page, limit, totalPages }`
 - Caches for 2 minutes
 
+**useSavedVacancyDetail(hhId, enabled?)**
+- Query for single saved vacancy detail by hh.ru ID
+- Returns: `SavedVacancyEntry` `{ vacancy: Vacancy, progress: ProgressEntry[] }`
+- Usage: `useSavedVacancyDetail('130401268')`
+
 **useAddVacancy()**
-- Mutation to add vacancy to saved list
-- Auto-invalidates saved vacancies cache
-- Usage: `addVacancy.mutate(vacancyId)`
+- Mutation to save vacancy (backend fetches from hh.ru and stores permanently)
+- Auto-invalidates saved vacancies cache, shows toast notification
+- Usage: `addVacancy.mutate(hhId)`
 
 **useRemoveVacancy()**
 - Mutation to remove vacancy from saved list
-- Auto-invalidates saved vacancies cache
-- Usage: `removeVacancy.mutate(vacancyId)`
+- Auto-invalidates saved vacancies cache, shows toast notification
+- Usage: `removeVacancy.mutate(hhId)`
+
+**useRefreshSavedVacancy()**
+- Mutation to re-fetch vacancy data from hh.ru API
+- Auto-invalidates saved detail cache, shows toast notification
+- Usage: `refreshVacancy.mutate(hhId)`
+
+**useUpdateSavedVacancyProgress()**
+- Mutation to update progress status (appends to progress history)
+- Auto-invalidates saved list and detail caches, shows toast notification
+- Usage: `updateProgress.mutate({ hhId, status: 'applied' })`
 
 ### HH.ru API Hooks (`src/hooks/useHhApi.ts`)
 
@@ -525,14 +564,18 @@ refreshToken(): Promise<AuthResponse>
 ```typescript
 fetchVacancy(id: string): Promise<Vacancy>
 searchVacancies(params: VacancySearchParams): Promise<PaginatedResponse<Vacancy>>
-fetchSavedVacancies(): Promise<Vacancy[]>
-addVacancy(vacancyId: string): Promise<void>
-removeVacancy(vacancyId: string): Promise<void>
+fetchSavedVacancies(params?: SavedVacanciesParams): Promise<SavedVacanciesResponse>
+fetchSavedVacancyDetail(hhId: string): Promise<SavedVacancyEntry>
+addVacancy(hhId: string): Promise<void>
+removeVacancy(hhId: string): Promise<void>
+refreshSavedVacancy(hhId: string): Promise<Vacancy>
+updateVacancyProgress(hhId: string, status: string): Promise<SavedVacancyEntry>
 ```
 
-**Important**:
-- `fetchSavedVacancies()` returns `response.data.vacancies` (not `response.data.data`)
-- Other methods follow standard `response.data` pattern
+**Important**: All saved vacancy endpoints unwrap the TransformInterceptor wrapper:
+```typescript
+return (response.data as unknown as { data: T }).data;
+```
 
 ### HH.ru API Service (`src/services/hhApiService.ts`)
 
@@ -604,19 +647,35 @@ Vacancy {
   _id: string,
   hhId: string,
   name: string,
-  employer: { id, name, url?, logoUrls?, trusted },
+  employer: { id, name, url?, logoUrls?, trusted, accreditedItEmployer? },
   salary?: { from?, to?, currency, gross? },
   area: { id, name, url },
   url: string,
+  alternateUrl?: string,
   description: string,
   schedule?: { id, name },
   experience?: { id, name },
   employment?: { id, name },
+  keySkills?: [{ name: string }],
+  professionalRoles?: [{ id, name }],
+  address?: object,
+  contacts?: object,
+  workFormat?: [{ id, name }],
+  workingHours?: [{ id, name }],
+  workScheduleByDays?: [{ id, name }],
+  acceptHandicapped?: boolean,
+  acceptKids?: boolean,
+  acceptTemporary?: boolean,
+  acceptIncompleteResumes?: boolean,
   publishedAt: string,
-  cacheExpiresAt: string,
+  cacheExpiresAt?: string,  // Optional — absent for saved vacancies
   createdAt: string,
   updatedAt: string
 }
+
+ProgressEntry { status: VacancyProgressStatus, statusSetDate: string }
+SavedVacancyEntry { vacancy: Vacancy, progress: ProgressEntry[] }
+SavedVacanciesResponse { items: SavedVacancyEntry[], total, page, limit, totalPages }
 ```
 
 ### VacancyProgress Types (`src/types/vacancyProgress.ts`)
@@ -874,18 +933,33 @@ VITE_HH_CACHE_HOURS=3
 ### Vacancy Saving Flow (Authenticated Users)
 
 **Add to Saved**:
-1. User clicks save icon on VacancyCard
-2. `useAddVacancy()` mutation calls backend `/users/me/vacancies/:id`
-3. Backend adds vacancy ID to user's `savedVacancies` array
-4. React Query invalidates saved vacancies cache
-5. UI updates to show filled save icon
+1. User clicks save icon on VacancyCard (from search results)
+2. `useAddVacancy()` mutation calls backend `POST /users/me/vacancies/:hhId`
+3. Backend fetches full vacancy from hh.ru API, stores permanently in MongoDB (no TTL)
+4. Backend adds subdocument to user's `savedVacancies` array with initial progress `[{status: 'saved', statusSetDate: now}]`
+5. React Query invalidates saved vacancies cache, toast shows "Vacancy saved"
+6. UI updates to show filled save icon
 
 **Remove from Saved**:
-1. User clicks saved icon on VacancyCard
-2. `useRemoveVacancy()` mutation calls backend DELETE endpoint
-3. Backend removes vacancy ID from user's array
-4. React Query invalidates cache
-5. UI updates to show empty save icon
+1. User clicks unsave icon on VacancyCard or "Remove from Saved" button on detail page
+2. `useRemoveVacancy()` mutation calls backend `DELETE /users/me/vacancies/:hhId`
+3. Backend removes subdocument from user's `savedVacancies` array
+4. React Query invalidates cache, toast shows "Vacancy removed"
+5. UI updates (list refreshes, detail page redirects to `/vacancies`)
+
+**Update Progress**:
+1. User selects new status from dropdown on SavedVacancyDetail page
+2. `useUpdateSavedVacancyProgress()` mutation calls backend `PATCH /users/me/vacancies/:hhId/progress`
+3. Backend appends new `{status, statusSetDate}` entry to progress array
+4. React Query invalidates saved caches, toast shows "Progress updated"
+5. Status chip updates, progress history shows new entry
+
+**Refresh from hh.ru**:
+1. User clicks "Refresh from hh.ru" button on SavedVacancyDetail page
+2. `useRefreshSavedVacancy()` mutation calls backend `POST /users/me/vacancies/:hhId/refresh`
+3. Backend fetches fresh data from hh.ru API, updates MongoDB document
+4. React Query invalidates saved detail cache, toast shows "Vacancy refreshed"
+5. Page displays updated vacancy data
 
 ### Protected Route Access
 
@@ -1017,32 +1091,19 @@ src/
 
 ## 🎯 Next Steps for Implementation
 
-1. **VacancyDetail Page**:
-   - Use `useParams()` to get vacancy ID
-   - Fetch with `useVacancy(id)` hook
-   - Display full description with HTML rendering
-   - Add breadcrumbs for navigation
-
-2. **SavedVacancies Page**:
-   - Fetch with `useSavedVacancies()` hook
-   - Reuse VacancyList component
-   - Add empty state for no saved vacancies
-   - Implement remove functionality
-
-3. **VacancyProgress Page**:
+1. **VacancyProgress Page**:
    - Fetch with `useVacancyProgress()` hook
    - Implement status filter tabs (Kanban-style?)
    - Add create/update/delete modals
    - Display statistics dashboard
 
-4. **Profile Page**:
+2. **Profile Page**:
    - Fetch with `useProfile()` hook
    - Formik form with Yup validation
    - Update with `useUpdateProfile()` hook
    - Add password change functionality (backend support needed)
 
-5. **Enhancements**:
-   - Toast notifications (e.g., notistack)
+3. **Enhancements**:
    - Dark mode toggle
    - "Remember Me" checkbox on login
    - Password reset flow

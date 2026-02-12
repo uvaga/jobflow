@@ -7,7 +7,7 @@ import { testVacancies } from '../fixtures/test-data';
  */
 @Injectable()
 export class MockHhApiService {
-  // Mock vacancy data
+  // Mock vacancy data (hh.ru API format - snake_case)
   private mockVacancies = [
     {
       id: '100000001',
@@ -16,10 +16,13 @@ export class MockHhApiService {
         id: '1000',
         name: 'TechCorp',
         url: 'https://api.hh.ru/employers/1000',
-        logoUrls: {
+        logo_urls: {
           '240': 'https://example.com/logo.png',
+          '90': 'https://example.com/logo-sm.png',
         },
+        alternate_url: 'https://hh.ru/employer/1000',
         trusted: true,
+        accredited_it_employer: true,
       },
       salary: {
         from: 150000,
@@ -32,7 +35,8 @@ export class MockHhApiService {
         name: 'Moscow',
         url: 'https://api.hh.ru/areas/1',
       },
-      url: 'https://hh.ru/vacancy/100000001',
+      url: 'https://api.hh.ru/vacancies/100000001',
+      alternate_url: 'https://hh.ru/vacancy/100000001',
       description: '<p>We are looking for a Senior JavaScript Developer...</p>',
       schedule: {
         id: 'remote',
@@ -46,7 +50,27 @@ export class MockHhApiService {
         id: 'full',
         name: 'Full-time employment',
       },
-      publishedAt: new Date().toISOString(),
+      key_skills: [
+        { name: 'JavaScript' },
+        { name: 'TypeScript' },
+        { name: 'Node.js' },
+      ],
+      professional_roles: [
+        { id: '96', name: 'Programmer, developer' },
+      ],
+      work_format: [
+        { id: 'remote', name: 'Remote' },
+      ],
+      working_hours: [
+        { id: 'full_day', name: 'Full day' },
+      ],
+      address: null,
+      contacts: null,
+      accept_handicapped: false,
+      accept_kids: false,
+      accept_temporary: false,
+      accept_incomplete_resumes: true,
+      published_at: new Date().toISOString(),
     },
     {
       id: '100000002',
@@ -55,8 +79,10 @@ export class MockHhApiService {
         id: '1001',
         name: 'StartupHub',
         url: 'https://api.hh.ru/employers/1001',
-        logoUrls: {},
+        logo_urls: {},
+        alternate_url: 'https://hh.ru/employer/1001',
         trusted: false,
+        accredited_it_employer: false,
       },
       salary: {
         from: 100000,
@@ -69,7 +95,8 @@ export class MockHhApiService {
         name: 'Saint Petersburg',
         url: 'https://api.hh.ru/areas/2',
       },
-      url: 'https://hh.ru/vacancy/100000002',
+      url: 'https://api.hh.ru/vacancies/100000002',
+      alternate_url: 'https://hh.ru/vacancy/100000002',
       description: '<p>Join our team as a Frontend React JavaScript Developer...</p>',
       schedule: {
         id: 'fullDay',
@@ -83,7 +110,22 @@ export class MockHhApiService {
         id: 'full',
         name: 'Full-time employment',
       },
-      publishedAt: new Date().toISOString(),
+      key_skills: [
+        { name: 'React' },
+        { name: 'JavaScript' },
+      ],
+      professional_roles: [
+        { id: '96', name: 'Programmer, developer' },
+      ],
+      work_format: null,
+      working_hours: null,
+      address: null,
+      contacts: null,
+      accept_handicapped: false,
+      accept_kids: false,
+      accept_temporary: false,
+      accept_incomplete_resumes: false,
+      published_at: new Date().toISOString(),
     },
     {
       id: '100000003',
@@ -92,10 +134,12 @@ export class MockHhApiService {
         id: '1002',
         name: 'DevCompany',
         url: 'https://api.hh.ru/employers/1002',
-        logoUrls: {
+        logo_urls: {
           '240': 'https://example.com/logo2.png',
         },
+        alternate_url: 'https://hh.ru/employer/1002',
         trusted: true,
+        accredited_it_employer: false,
       },
       salary: {
         from: 120000,
@@ -108,7 +152,8 @@ export class MockHhApiService {
         name: 'Moscow',
         url: 'https://api.hh.ru/areas/1',
       },
-      url: 'https://hh.ru/vacancy/100000003',
+      url: 'https://api.hh.ru/vacancies/100000003',
+      alternate_url: 'https://hh.ru/vacancy/100000003',
       description: '<p>We need a talented Node.js Backend Developer...</p>',
       schedule: {
         id: 'remote',
@@ -122,12 +167,29 @@ export class MockHhApiService {
         id: 'full',
         name: 'Full-time employment',
       },
-      publishedAt: new Date().toISOString(),
+      key_skills: [
+        { name: 'Node.js' },
+        { name: 'Express' },
+        { name: 'MongoDB' },
+      ],
+      professional_roles: [
+        { id: '96', name: 'Programmer, developer' },
+      ],
+      work_format: [
+        { id: 'remote', name: 'Remote' },
+      ],
+      working_hours: null,
+      address: null,
+      contacts: null,
+      accept_handicapped: false,
+      accept_kids: false,
+      accept_temporary: false,
+      accept_incomplete_resumes: true,
+      published_at: new Date().toISOString(),
     },
   ];
 
   async searchVacancies(params?: any): Promise<any> {
-    // Filter vacancies based on search text if provided
     let items = this.mockVacancies;
 
     if (params?.text) {
@@ -139,7 +201,6 @@ export class MockHhApiService {
       );
     }
 
-    // Apply pagination
     const perPage = params?.per_page || 20;
     const page = params?.page || 0;
     const start = page * perPage;
@@ -155,16 +216,12 @@ export class MockHhApiService {
   }
 
   async getVacancyById(id: string): Promise<any> {
-    // Return mock vacancy if it exists
     const vacancy = this.mockVacancies.find((v) => v.id === id);
 
     if (vacancy) {
       return vacancy;
     }
 
-    // For test IDs not in our list, return a generated mock vacancy
-    // This allows tests to use any ID without 500 errors
-    // Only throw 404 for obviously invalid IDs (like '999999999999')
     if (id === testVacancies.invalidVacancyId || id.startsWith('999')) {
       throw new NotFoundException(`Vacancy ${id} not found`);
     }
@@ -177,10 +234,12 @@ export class MockHhApiService {
         id: '1000',
         name: 'Test Company',
         url: 'https://api.hh.ru/employers/1000',
-        logoUrls: {
+        logo_urls: {
           '240': 'https://example.com/logo.png',
         },
+        alternate_url: 'https://hh.ru/employer/1000',
         trusted: true,
+        accredited_it_employer: false,
       },
       salary: {
         from: 100000,
@@ -193,7 +252,8 @@ export class MockHhApiService {
         name: 'Moscow',
         url: 'https://api.hh.ru/areas/1',
       },
-      url: `https://hh.ru/vacancy/${id}`,
+      url: `https://api.hh.ru/vacancies/${id}`,
+      alternate_url: `https://hh.ru/vacancy/${id}`,
       description: `<p>Test vacancy description for ${id}</p>`,
       schedule: {
         id: 'remote',
@@ -207,7 +267,17 @@ export class MockHhApiService {
         id: 'full',
         name: 'Full-time employment',
       },
-      publishedAt: new Date().toISOString(),
+      key_skills: [{ name: 'Testing' }],
+      professional_roles: [{ id: '96', name: 'Programmer, developer' }],
+      work_format: null,
+      working_hours: null,
+      address: null,
+      contacts: null,
+      accept_handicapped: false,
+      accept_kids: false,
+      accept_temporary: false,
+      accept_incomplete_resumes: false,
+      published_at: new Date().toISOString(),
     };
   }
 

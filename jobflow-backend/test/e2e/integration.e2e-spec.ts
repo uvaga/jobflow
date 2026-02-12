@@ -86,84 +86,74 @@ describe('Integration - Full User Journey (e2e)', () => {
 
       expect(vacancyResponse.body.data).toHaveProperty('_id');
       expect(vacancyResponse.body.data).toHaveProperty('description');
-      const vacancyMongoId = vacancyResponse.body.data._id;
+      const hhId = firstVacancy.id;
 
-      // 5. Save vacancy to favorites
+      // 5. Save vacancy (fetches from hh.ru and stores permanently)
       const saveResponse = await request(app.getHttpServer())
-        .post(`/api/v1/users/me/vacancies/${vacancyMongoId}`)
+        .post(`/api/v1/users/me/vacancies/${hhId}`)
         .set('Authorization', `Bearer ${accessToken}`)
         .expect(200);
 
-      expect(saveResponse.body.data.savedVacancies).toContain(vacancyMongoId);
+      expect(saveResponse.body.data.savedVacancies).toHaveLength(1);
+      expect(saveResponse.body.data.savedVacancies[0]).toHaveProperty('vacancy');
+      expect(saveResponse.body.data.savedVacancies[0]).toHaveProperty('progress');
+      expect(saveResponse.body.data.savedVacancies[0].progress[0].status).toBe('saved');
 
-      // 6. Verify saved vacancies list
+      // 6. Verify saved vacancies list (paginated)
       const savedVacanciesResponse = await request(app.getHttpServer())
         .get('/api/v1/users/me/vacancies')
         .set('Authorization', `Bearer ${accessToken}`)
         .expect(200);
 
-      expect(savedVacanciesResponse.body.data.length).toBe(1);
+      expect(savedVacanciesResponse.body.data.items).toHaveLength(1);
+      expect(savedVacanciesResponse.body.data.total).toBe(1);
 
-      // 7. Create application tracking
-      const createProgressResponse = await request(app.getHttpServer())
-        .post('/api/v1/vacancy-progress')
+      // 7. Update progress status to 'applied'
+      const updateProgressResponse = await request(app.getHttpServer())
+        .patch(`/api/v1/users/me/vacancies/${hhId}/progress`)
         .set('Authorization', `Bearer ${accessToken}`)
-        .send({
-          vacancyId: vacancyMongoId,
-          status: 'saved',
-          notes: 'Interesting position, need to prepare resume',
-          priority: 4,
-          tags: ['frontend', 'urgent'],
-        })
-        .expect(201);
-
-      expect(createProgressResponse.body.data).toHaveProperty('_id');
-      expect(createProgressResponse.body.data.status).toBe('saved');
-      const progressId = createProgressResponse.body.data._id;
-
-      // 8. Update application status to 'applied'
-      const updateToAppliedResponse = await request(app.getHttpServer())
-        .patch(`/api/v1/vacancy-progress/${progressId}`)
-        .set('Authorization', `Bearer ${accessToken}`)
-        .send({
-          status: 'applied',
-          appliedAt: new Date().toISOString(),
-          notes: 'Submitted application via hh.ru',
-        })
+        .send({ status: 'applied' })
         .expect(200);
 
-      expect(updateToAppliedResponse.body.data.status).toBe('applied');
-      expect(updateToAppliedResponse.body.data.appliedAt).toBeDefined();
+      expect(updateProgressResponse.body.data.progress).toHaveLength(2);
+      expect(updateProgressResponse.body.data.progress[1].status).toBe('applied');
 
-      // 9. Add interview notes
-      const updateWithInterviewResponse = await request(app.getHttpServer())
-        .patch(`/api/v1/vacancy-progress/${progressId}`)
+      // 8. Update progress status to 'interview_scheduled'
+      const updateInterviewResponse = await request(app.getHttpServer())
+        .patch(`/api/v1/users/me/vacancies/${hhId}/progress`)
         .set('Authorization', `Bearer ${accessToken}`)
-        .send({
-          status: 'interview_scheduled',
-          interviewDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days from now
-          notes: 'Interview scheduled for next week. Prepare for technical questions.',
-        })
+        .send({ status: 'interview_scheduled' })
         .expect(200);
 
-      expect(updateWithInterviewResponse.body.data.status).toBe('interview_scheduled');
-      expect(updateWithInterviewResponse.body.data.interviewDate).toBeDefined();
+      expect(updateInterviewResponse.body.data.progress).toHaveLength(3);
+      expect(updateInterviewResponse.body.data.progress[2].status).toBe('interview_scheduled');
 
-      // 10. Get statistics showing progress
-      const statsResponse = await request(app.getHttpServer())
-        .get('/api/v1/vacancy-progress/statistics')
+      // 9. Get saved vacancy detail
+      const detailResponse = await request(app.getHttpServer())
+        .get(`/api/v1/users/me/vacancies/${hhId}`)
         .set('Authorization', `Bearer ${accessToken}`)
         .expect(200);
 
-      expect(statsResponse.body.data.interview_scheduled).toBe(1);
+      expect(detailResponse.body.data).toHaveProperty('vacancy');
+      expect(detailResponse.body.data).toHaveProperty('progress');
+      expect(detailResponse.body.data.vacancy.hhId).toBe(hhId);
 
-      // 11. Get all applications
-      const allProgressResponse = await request(app.getHttpServer())
-        .get('/api/v1/vacancy-progress')
+      // 10. Refresh vacancy from hh.ru
+      const refreshResponse = await request(app.getHttpServer())
+        .post(`/api/v1/users/me/vacancies/${hhId}/refresh`)
         .set('Authorization', `Bearer ${accessToken}`)
         .expect(200);
 
-      expect(allProgressResponse.body.data.length).toBeGreaterThan(0);
+      expect(refreshResponse.body.data).toHaveProperty('hhId');
+      expect(refreshResponse.body.data.hhId).toBe(hhId);
+
+      // 11. Filter saved vacancies by status
+      const filteredResponse = await request(app.getHttpServer())
+        .get('/api/v1/users/me/vacancies?status=interview_scheduled')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .expect(200);
+
+      expect(filteredResponse.body.data.items).toHaveLength(1);
 
       // 12. Update profile information
       const updateProfileResponse = await request(app.getHttpServer())
@@ -183,6 +173,8 @@ describe('Integration - Full User Journey (e2e)', () => {
         .expect(200);
 
       expect(finalProfileResponse.body.data.savedVacancies).toHaveLength(1);
+      expect(finalProfileResponse.body.data.savedVacancies[0]).toHaveProperty('vacancy');
+      expect(finalProfileResponse.body.data.savedVacancies[0]).toHaveProperty('progress');
       expect(finalProfileResponse.body.data.firstName).toBe('UpdatedName');
     });
   });
@@ -195,56 +187,32 @@ describe('Integration - Full User Journey (e2e)', () => {
       // Create User 2
       const user2 = await authHelper.registerAndLogin(testUsers.anotherUser);
 
-      // Get a vacancy for testing
+      // Get vacancies for testing
       const searchResponse = await request(app.getHttpServer())
         .get('/api/v1/vacancies/search?text=developer&per_page=2')
         .expect(200);
 
-      const vacancy1Id = searchResponse.body.data.items[0].id;
-      const vacancy2Id = searchResponse.body.data.items[1].id;
+      const hhId1 = searchResponse.body.data.items[0].id;
+      const hhId2 = searchResponse.body.data.items[1].id;
 
-      // Get vacancy details (creates in DB)
-      const v1Response = await request(app.getHttpServer())
-        .get(`/api/v1/vacancies/${vacancy1Id}`)
-        .expect(200);
-      const v1MongoId = v1Response.body.data._id;
-
-      const v2Response = await request(app.getHttpServer())
-        .get(`/api/v1/vacancies/${vacancy2Id}`)
-        .expect(200);
-      const v2MongoId = v2Response.body.data._id;
-
-      // User 1 saves vacancy 1
+      // User 1 saves vacancy 1 (fetches from hh.ru and stores)
       await request(app.getHttpServer())
-        .post(`/api/v1/users/me/vacancies/${v1MongoId}`)
+        .post(`/api/v1/users/me/vacancies/${hhId1}`)
         .set('Authorization', `Bearer ${user1.token}`)
         .expect(200);
 
       // User 2 saves vacancy 2
       await request(app.getHttpServer())
-        .post(`/api/v1/users/me/vacancies/${v2MongoId}`)
+        .post(`/api/v1/users/me/vacancies/${hhId2}`)
         .set('Authorization', `Bearer ${user2.token}`)
         .expect(200);
 
-      // User 1 creates application
+      // User 1 updates progress to 'applied'
       await request(app.getHttpServer())
-        .post('/api/v1/vacancy-progress')
+        .patch(`/api/v1/users/me/vacancies/${hhId1}/progress`)
         .set('Authorization', `Bearer ${user1.token}`)
-        .send({
-          vacancyId: v1MongoId,
-          status: 'applied',
-        })
-        .expect(201);
-
-      // User 2 creates different application
-      await request(app.getHttpServer())
-        .post('/api/v1/vacancy-progress')
-        .set('Authorization', `Bearer ${user2.token}`)
-        .send({
-          vacancyId: v2MongoId,
-          status: 'saved',
-        })
-        .expect(201);
+        .send({ status: 'applied' })
+        .expect(200);
 
       // Verify User 1's data
       const user1Saved = await request(app.getHttpServer())
@@ -252,15 +220,10 @@ describe('Integration - Full User Journey (e2e)', () => {
         .set('Authorization', `Bearer ${user1.token}`)
         .expect(200);
 
-      expect(user1Saved.body.data.length).toBe(1);
-
-      const user1Progress = await request(app.getHttpServer())
-        .get('/api/v1/vacancy-progress')
-        .set('Authorization', `Bearer ${user1.token}`)
-        .expect(200);
-
-      expect(user1Progress.body.data.length).toBe(1);
-      expect(user1Progress.body.data[0].status).toBe('applied');
+      expect(user1Saved.body.data.items).toHaveLength(1);
+      // User 1 should have 2 progress entries (saved + applied)
+      expect(user1Saved.body.data.items[0].progress).toHaveLength(2);
+      expect(user1Saved.body.data.items[0].progress[1].status).toBe('applied');
 
       // Verify User 2's data
       const user2Saved = await request(app.getHttpServer())
@@ -268,18 +231,15 @@ describe('Integration - Full User Journey (e2e)', () => {
         .set('Authorization', `Bearer ${user2.token}`)
         .expect(200);
 
-      expect(user2Saved.body.data.length).toBe(1);
+      expect(user2Saved.body.data.items).toHaveLength(1);
+      // User 2 should only have 1 progress entry (saved)
+      expect(user2Saved.body.data.items[0].progress).toHaveLength(1);
+      expect(user2Saved.body.data.items[0].progress[0].status).toBe('saved');
 
-      const user2Progress = await request(app.getHttpServer())
-        .get('/api/v1/vacancy-progress')
-        .set('Authorization', `Bearer ${user2.token}`)
-        .expect(200);
-
-      expect(user2Progress.body.data.length).toBe(1);
-      expect(user2Progress.body.data[0].status).toBe('saved');
-
-      // Verify no data leakage
-      expect(user1Saved.body.data[0]._id).not.toBe(user2Saved.body.data[0]._id);
+      // Verify data isolation - different vacancies
+      const user1VacancyHhId = user1Saved.body.data.items[0].vacancy.hhId;
+      const user2VacancyHhId = user2Saved.body.data.items[0].vacancy.hhId;
+      expect(user1VacancyHhId).not.toBe(user2VacancyHhId);
     });
   });
 
@@ -302,19 +262,15 @@ describe('Integration - Full User Journey (e2e)', () => {
 
       const token1 = login1Response.body.data.accessToken;
 
-      // Create some data
+      // Create some data - save a vacancy
       const searchResponse = await request(app.getHttpServer())
         .get('/api/v1/vacancies/search?text=developer&per_page=1')
         .expect(200);
 
       const hhId = searchResponse.body.data.items[0].id;
 
-      const vacancyResponse = await request(app.getHttpServer())
-        .get(`/api/v1/vacancies/${hhId}`)
-        .expect(200);
-
       await request(app.getHttpServer())
-        .post(`/api/v1/users/me/vacancies/${vacancyResponse.body.data._id}`)
+        .post(`/api/v1/users/me/vacancies/${hhId}`)
         .set('Authorization', `Bearer ${token1}`)
         .expect(200);
 
@@ -337,7 +293,9 @@ describe('Integration - Full User Journey (e2e)', () => {
         .set('Authorization', `Bearer ${token2}`)
         .expect(200);
 
-      expect(savedVacanciesResponse.body.data.length).toBe(1);
+      expect(savedVacanciesResponse.body.data.items).toHaveLength(1);
+      expect(savedVacanciesResponse.body.data.items[0]).toHaveProperty('vacancy');
+      expect(savedVacanciesResponse.body.data.items[0]).toHaveProperty('progress');
     });
   });
 
