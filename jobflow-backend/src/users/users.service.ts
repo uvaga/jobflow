@@ -298,6 +298,110 @@ export class UsersService {
   }
 
   /**
+   * Update notes for a saved vacancy.
+   */
+  async updateVacancyNotes(
+    userId: string,
+    hhId: string,
+    notes: string,
+  ): Promise<any> {
+    const existingUser = await this.userModel
+      .findById(userId)
+      .populate('savedVacancies.vacancy')
+      .exec();
+
+    if (!existingUser) {
+      throw new NotFoundException('User not found');
+    }
+
+    const entry = existingUser.savedVacancies.find(
+      (sv) => (sv.vacancy as any)?.hhId === hhId,
+    );
+
+    if (!entry) {
+      throw new NotFoundException('Saved vacancy not found');
+    }
+
+    const vacancyId = (entry.vacancy as any)._id as Types.ObjectId;
+
+    const user = await this.userModel
+      .findOneAndUpdate(
+        {
+          _id: userId,
+          'savedVacancies.vacancy': vacancyId,
+        },
+        {
+          $set: {
+            'savedVacancies.$.notes': notes,
+          },
+        },
+        { new: true },
+      )
+      .populate('savedVacancies.vacancy')
+      .exec();
+
+    if (!user) {
+      throw new NotFoundException('Saved vacancy not found');
+    }
+
+    return user.savedVacancies.find(
+      (sv) => (sv.vacancy as any)?.hhId === hhId,
+    );
+  }
+
+  /**
+   * Update checklist for a saved vacancy.
+   */
+  async updateVacancyChecklist(
+    userId: string,
+    hhId: string,
+    checklist: { text: string; checked: boolean }[],
+  ): Promise<any> {
+    const existingUser = await this.userModel
+      .findById(userId)
+      .populate('savedVacancies.vacancy')
+      .exec();
+
+    if (!existingUser) {
+      throw new NotFoundException('User not found');
+    }
+
+    const entry = existingUser.savedVacancies.find(
+      (sv) => (sv.vacancy as any)?.hhId === hhId,
+    );
+
+    if (!entry) {
+      throw new NotFoundException('Saved vacancy not found');
+    }
+
+    const vacancyId = (entry.vacancy as any)._id as Types.ObjectId;
+
+    const user = await this.userModel
+      .findOneAndUpdate(
+        {
+          _id: userId,
+          'savedVacancies.vacancy': vacancyId,
+        },
+        {
+          $set: {
+            'savedVacancies.$.checklist': checklist,
+          },
+        },
+        { new: true },
+      )
+      .populate('savedVacancies.vacancy')
+      .exec();
+
+    if (!user) {
+      throw new NotFoundException('Saved vacancy not found');
+    }
+
+    return user.savedVacancies.find(
+      (sv) => (sv.vacancy as any)?.hhId === hhId,
+    );
+  }
+
+  /**
    * Refresh a user's saved vacancy snapshot from hh.ru API.
    */
   async refreshVacancy(userId: string, hhId: string): Promise<Vacancy> {

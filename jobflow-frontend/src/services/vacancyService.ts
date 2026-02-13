@@ -1,5 +1,5 @@
 import { apiClient } from '@/config/api';
-import type { Vacancy, PaginatedResponse, SavedVacanciesResponse, SavedVacancyEntry } from '@/types';
+import type { Vacancy, PaginatedResponse, SavedVacanciesResponse, SavedVacancyEntry, ChecklistItem } from '@/types';
 import type { ApiResponse } from '@/types/api.types';
 
 export interface VacancySearchParams {
@@ -107,6 +107,36 @@ export const updateVacancyProgress = async (
   const response = await apiClient.patch<ApiResponse<SavedVacancyEntry>>(
     `/users/me/vacancies/${hhId}/progress`,
     { status },
+  );
+  return response.data.data;
+};
+
+/**
+ * Update notes for a saved vacancy
+ * Note: Backend TransformInterceptor wraps response in { data: {...} }
+ */
+export const updateVacancyNotes = async (
+  hhId: string,
+  notes: string,
+): Promise<SavedVacancyEntry> => {
+  const response = await apiClient.patch<ApiResponse<SavedVacancyEntry>>(
+    `/users/me/vacancies/${hhId}/notes`,
+    { notes },
+  );
+  return response.data.data;
+};
+
+/**
+ * Update checklist for a saved vacancy
+ * Note: Backend TransformInterceptor wraps response in { data: {...} }
+ */
+export const updateVacancyChecklist = async (
+  hhId: string,
+  checklist: ChecklistItem[],
+): Promise<SavedVacancyEntry> => {
+  const response = await apiClient.patch<ApiResponse<SavedVacancyEntry>>(
+    `/users/me/vacancies/${hhId}/checklist`,
+    { checklist },
   );
   return response.data.data;
 };

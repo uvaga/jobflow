@@ -142,7 +142,7 @@ export default function VacancyDetail() {
           )}
         </Paper>
 
-        <KeySkillsSection skills={vacancy.keySkills} />
+        <KeySkillsSection skills={vacancy.keySkills} areaId={vacancy.area.id} />
         <DescriptionSection description={vacancy.description} />
         <AdditionalInfoSection vacancy={vacancy} />
         <ContactsSection contacts={vacancy.contacts} />

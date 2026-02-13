@@ -61,9 +61,16 @@ export interface ProgressEntry {
   statusSetDate: string;
 }
 
+export interface ChecklistItem {
+  text: string;
+  checked: boolean;
+}
+
 export interface SavedVacancyEntry {
   vacancy: Vacancy;
   progress: ProgressEntry[];
+  notes: string;
+  checklist: ChecklistItem[];
 }
 
 export interface SavedVacanciesResponse {

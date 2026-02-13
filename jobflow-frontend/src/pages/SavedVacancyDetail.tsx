@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useState, useEffect, memo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -14,20 +14,31 @@ import {
   Select,
   MenuItem,
   Tooltip,
+  TextField,
+  List,
+  ListItem,
+  ListItemIcon,
+  ListItemText,
+  Checkbox,
+  IconButton,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import DeleteIcon from '@mui/icons-material/Delete';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
+import AddIcon from '@mui/icons-material/Add';
 
 import {
   useSavedVacancyDetail,
   useRefreshSavedVacancy,
   useRemoveVacancy,
   useUpdateSavedVacancyProgress,
+  useUpdateSavedVacancyNotes,
+  useUpdateSavedVacancyChecklist,
 } from '@/hooks/useVacancies';
 import ProgressStatusChip from '@/components/features/ProgressStatusChip';
 import { VacancyProgressStatus } from '@/types/vacancyProgress';
+import type { ChecklistItem } from '@/types';
 import { normalizeFromDb } from '@/utils/vacancyNormalizer';
 import { formatDate, formatDateTime } from '@/utils/vacancyHelpers';
 import {
@@ -40,6 +51,222 @@ import {
 import ConfirmDialog from '@/components/common/ConfirmDialog';
 
 const statusOptions = Object.values(VacancyProgressStatus);
+const NOTES_MAX_LENGTH = 2000;
+const CHECKLIST_MAX_ITEMS = 50;
+const CHECKLIST_ITEM_MAX_LENGTH = 200;
+
+// ── Notes Section (isolated state) ────────────────────────────────
+
+interface NotesSectionProps {
+  hhId: string;
+  serverNotes: string;
+}
+
+const NotesSection = memo(function NotesSection({ hhId, serverNotes }: NotesSectionProps) {
+  const notesMutation = useUpdateSavedVacancyNotes();
+  const [localNotes, setLocalNotes] = useState(serverNotes);
+  const [initialized, setInitialized] = useState(false);
+
+  useEffect(() => {
+    if (!initialized) {
+      setLocalNotes(serverNotes);
+      setInitialized(true);
+    }
+  }, [serverNotes, initialized]);
+
+  const notesChanged = localNotes !== serverNotes;
+
+  const handleSave = useCallback(() => {
+    notesMutation.mutate({ hhId, notes: localNotes });
+  }, [hhId, localNotes, notesMutation]);
+
+  return (
+    <Paper elevation={2} sx={{ p: 3, mb: 3 }}>
+      <Typography variant="h5" fontWeight={600} gutterBottom>
+        Notes
+      </Typography>
+      <Divider sx={{ mb: 3 }} />
+
+      <TextField
+        multiline
+        minRows={3}
+        maxRows={10}
+        fullWidth
+        placeholder="Add your personal notes about this vacancy..."
+        value={localNotes}
+        onChange={(e) => setLocalNotes(e.target.value)}
+        slotProps={{
+          htmlInput: { maxLength: NOTES_MAX_LENGTH },
+        }}
+      />
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 1 }}>
+        <Typography variant="caption" color="text.secondary">
+          {localNotes.length}/{NOTES_MAX_LENGTH}
+        </Typography>
+        <Button
+          variant="contained"
+          size="small"
+          onClick={handleSave}
+          disabled={!notesChanged || notesMutation.isPending}
+        >
+          {notesMutation.isPending ? 'Saving...' : 'Save Notes'}
+        </Button>
+      </Box>
+    </Paper>
+  );
+});
+
+// ── Checklist Section (isolated state) ────────────────────────────
+
+interface ChecklistSectionProps {
+  hhId: string;
+  serverChecklist: ChecklistItem[];
+}
+
+const ChecklistSection = memo(function ChecklistSection({ hhId, serverChecklist }: ChecklistSectionProps) {
+  const checklistMutation = useUpdateSavedVacancyChecklist();
+  const [localChecklist, setLocalChecklist] = useState<ChecklistItem[]>(serverChecklist);
+  const [initialized, setInitialized] = useState(false);
+  const [newItemText, setNewItemText] = useState('');
+
+  useEffect(() => {
+    if (!initialized) {
+      setLocalChecklist(serverChecklist);
+      setInitialized(true);
+    }
+  }, [serverChecklist, initialized]);
+
+  const saveChecklist = useCallback((items: ChecklistItem[]) => {
+    checklistMutation.mutate({ hhId, checklist: items });
+  }, [hhId, checklistMutation]);
+
+  const handleToggle = useCallback((index: number) => {
+    setLocalChecklist((prev) => {
+      const updated = prev.map((item, i) =>
+        i === index ? { ...item, checked: !item.checked } : item,
+      );
+      saveChecklist(updated);
+      return updated;
+    });
+  }, [saveChecklist]);
+
+  const handleRemove = useCallback((index: number) => {
+    setLocalChecklist((prev) => {
+      const updated = prev.filter((_, i) => i !== index);
+      saveChecklist(updated);
+      return updated;
+    });
+  }, [saveChecklist]);
+
+  const handleAdd = useCallback(() => {
+    const text = newItemText.trim();
+    if (!text) return;
+    setLocalChecklist((prev) => {
+      if (prev.length >= CHECKLIST_MAX_ITEMS) return prev;
+      const updated = [...prev, { text, checked: false }];
+      saveChecklist(updated);
+      return updated;
+    });
+    setNewItemText('');
+  }, [newItemText, saveChecklist]);
+
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleAdd();
+    }
+  }, [handleAdd]);
+
+  const checkedCount = localChecklist.filter((item) => item.checked).length;
+
+  return (
+    <Paper elevation={2} sx={{ p: 3, mb: 3 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+        <Typography variant="h5" fontWeight={600}>
+          Checklist
+        </Typography>
+        {localChecklist.length > 0 && (
+          <Typography variant="body2" color="text.secondary">
+            {checkedCount}/{localChecklist.length} completed
+          </Typography>
+        )}
+      </Box>
+      <Divider sx={{ mb: 2 }} />
+
+      {localChecklist.length > 0 && (
+        <List dense disablePadding>
+          {localChecklist.map((item, index) => (
+            <ListItem
+              key={index}
+              disablePadding
+              secondaryAction={
+                <IconButton
+                  edge="end"
+                  size="small"
+                  onClick={() => handleRemove(index)}
+                  aria-label="delete"
+                >
+                  <DeleteIcon fontSize="small" />
+                </IconButton>
+              }
+              sx={{ pr: 6 }}
+            >
+              <ListItemIcon sx={{ minWidth: 36 }}>
+                <Checkbox
+                  edge="start"
+                  checked={item.checked}
+                  onChange={() => handleToggle(index)}
+                  size="small"
+                />
+              </ListItemIcon>
+              <ListItemText
+                primary={item.text}
+                sx={{
+                  textDecoration: item.checked ? 'line-through' : 'none',
+                  color: item.checked ? 'text.secondary' : 'text.primary',
+                }}
+              />
+            </ListItem>
+          ))}
+        </List>
+      )}
+
+      <Box sx={{ display: 'flex', gap: 1, mt: localChecklist.length > 0 ? 2 : 0 }}>
+        <TextField
+          size="small"
+          fullWidth
+          placeholder={
+            localChecklist.length >= CHECKLIST_MAX_ITEMS
+              ? `Maximum ${CHECKLIST_MAX_ITEMS} items reached`
+              : 'Add a checklist item...'
+          }
+          value={newItemText}
+          onChange={(e) => setNewItemText(e.target.value)}
+          onKeyDown={handleKeyDown}
+          disabled={localChecklist.length >= CHECKLIST_MAX_ITEMS}
+          slotProps={{
+            htmlInput: { maxLength: CHECKLIST_ITEM_MAX_LENGTH },
+          }}
+        />
+        <Button
+          variant="outlined"
+          size="small"
+          startIcon={<AddIcon />}
+          onClick={handleAdd}
+          disabled={
+            !newItemText.trim() ||
+            localChecklist.length >= CHECKLIST_MAX_ITEMS
+          }
+          sx={{ whiteSpace: 'nowrap' }}
+        >
+          Add
+        </Button>
+      </Box>
+    </Paper>
+  );
+});
+
+// ── Main Page ─────────────────────────────────────────────────────
 
 export default function SavedVacancyDetail() {
   const { id: hhId } = useParams<{ id: string }>();
@@ -243,7 +470,14 @@ export default function SavedVacancyDetail() {
           )}
         </Paper>
 
-        <KeySkillsSection skills={vacancy.keySkills} />
+        {hhId && (
+          <>
+            <NotesSection hhId={hhId} serverNotes={entry.notes ?? ''} />
+            <ChecklistSection hhId={hhId} serverChecklist={entry.checklist ?? []} />
+          </>
+        )}
+
+        <KeySkillsSection skills={vacancy.keySkills} areaId={vacancy.area.id} />
         <DescriptionSection description={vacancy.description} />
         <AdditionalInfoSection vacancy={vacancy} />
 

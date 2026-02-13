@@ -1,10 +1,22 @@
+import { useCallback } from 'react';
 import { Paper, Typography, Stack, Chip } from '@mui/material';
 
 interface KeySkillsSectionProps {
   skills: { name: string }[];
+  areaId?: string;
 }
 
-export default function KeySkillsSection({ skills }: KeySkillsSectionProps) {
+export default function KeySkillsSection({ skills, areaId }: KeySkillsSectionProps) {
+  const handleSkillClick = useCallback(
+    (skillName: string) => {
+      const params = new URLSearchParams();
+      params.set('text', skillName);
+      if (areaId) params.set('area', areaId);
+      window.open(`/search?${params.toString()}`, '_blank', 'noopener,noreferrer');
+    },
+    [areaId],
+  );
+
   if (skills.length === 0) return null;
 
   return (
@@ -19,6 +31,8 @@ export default function KeySkillsSection({ skills }: KeySkillsSectionProps) {
             label={skill.name}
             color="primary"
             variant="outlined"
+            clickable
+            onClick={() => handleSkillClick(skill.name)}
           />
         ))}
       </Stack>

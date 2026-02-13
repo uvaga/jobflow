@@ -495,6 +495,237 @@ describe('Users (e2e)', () => {
       });
     });
 
+    describe('PATCH /api/v1/users/me/vacancies/:hhId/notes', () => {
+      it('should update notes for a saved vacancy', async () => {
+        await request(app.getHttpServer())
+          .post(`/api/v1/users/me/vacancies/${hhId}`)
+          .set('Authorization', `Bearer ${authToken}`)
+          .expect(200);
+
+        const response = await request(app.getHttpServer())
+          .patch(`/api/v1/users/me/vacancies/${hhId}/notes`)
+          .set('Authorization', `Bearer ${authToken}`)
+          .send({ notes: 'My personal notes about this vacancy' })
+          .expect(200);
+
+        expect(response.body.data.notes).toBe('My personal notes about this vacancy');
+      });
+
+      it('should allow empty notes', async () => {
+        await request(app.getHttpServer())
+          .post(`/api/v1/users/me/vacancies/${hhId}`)
+          .set('Authorization', `Bearer ${authToken}`)
+          .expect(200);
+
+        const response = await request(app.getHttpServer())
+          .patch(`/api/v1/users/me/vacancies/${hhId}/notes`)
+          .set('Authorization', `Bearer ${authToken}`)
+          .send({ notes: '' })
+          .expect(200);
+
+        expect(response.body.data.notes).toBe('');
+      });
+
+      it('should reject notes exceeding 2000 characters', async () => {
+        await request(app.getHttpServer())
+          .post(`/api/v1/users/me/vacancies/${hhId}`)
+          .set('Authorization', `Bearer ${authToken}`)
+          .expect(200);
+
+        await request(app.getHttpServer())
+          .patch(`/api/v1/users/me/vacancies/${hhId}/notes`)
+          .set('Authorization', `Bearer ${authToken}`)
+          .send({ notes: 'a'.repeat(2001) })
+          .expect(400);
+      });
+
+      it('should return 404 for unsaved vacancy', async () => {
+        await request(app.getHttpServer())
+          .patch(`/api/v1/users/me/vacancies/${hhId}/notes`)
+          .set('Authorization', `Bearer ${authToken}`)
+          .send({ notes: 'test' })
+          .expect(404);
+      });
+
+      it('should fail without auth token (401)', async () => {
+        await request(app.getHttpServer())
+          .patch(`/api/v1/users/me/vacancies/${hhId}/notes`)
+          .send({ notes: 'test' })
+          .expect(401);
+      });
+    });
+
+    describe('PATCH /api/v1/users/me/vacancies/:hhId/checklist', () => {
+      it('should update checklist for a saved vacancy', async () => {
+        await request(app.getHttpServer())
+          .post(`/api/v1/users/me/vacancies/${hhId}`)
+          .set('Authorization', `Bearer ${authToken}`)
+          .expect(200);
+
+        const response = await request(app.getHttpServer())
+          .patch(`/api/v1/users/me/vacancies/${hhId}/checklist`)
+          .set('Authorization', `Bearer ${authToken}`)
+          .send({
+            checklist: [
+              { text: 'Prepare resume', checked: false },
+              { text: 'Write cover letter', checked: true },
+            ],
+          })
+          .expect(200);
+
+        expect(response.body.data.checklist).toHaveLength(2);
+        expect(response.body.data.checklist[0].text).toBe('Prepare resume');
+        expect(response.body.data.checklist[0].checked).toBe(false);
+        expect(response.body.data.checklist[1].text).toBe('Write cover letter');
+        expect(response.body.data.checklist[1].checked).toBe(true);
+      });
+
+      it('should allow empty checklist', async () => {
+        await request(app.getHttpServer())
+          .post(`/api/v1/users/me/vacancies/${hhId}`)
+          .set('Authorization', `Bearer ${authToken}`)
+          .expect(200);
+
+        const response = await request(app.getHttpServer())
+          .patch(`/api/v1/users/me/vacancies/${hhId}/checklist`)
+          .set('Authorization', `Bearer ${authToken}`)
+          .send({ checklist: [] })
+          .expect(200);
+
+        expect(response.body.data.checklist).toHaveLength(0);
+      });
+
+      it('should replace entire checklist array', async () => {
+        await request(app.getHttpServer())
+          .post(`/api/v1/users/me/vacancies/${hhId}`)
+          .set('Authorization', `Bearer ${authToken}`)
+          .expect(200);
+
+        // Set initial checklist
+        await request(app.getHttpServer())
+          .patch(`/api/v1/users/me/vacancies/${hhId}/checklist`)
+          .set('Authorization', `Bearer ${authToken}`)
+          .send({ checklist: [{ text: 'Item 1', checked: false }] })
+          .expect(200);
+
+        // Replace with new checklist
+        const response = await request(app.getHttpServer())
+          .patch(`/api/v1/users/me/vacancies/${hhId}/checklist`)
+          .set('Authorization', `Bearer ${authToken}`)
+          .send({ checklist: [{ text: 'New item', checked: true }] })
+          .expect(200);
+
+        expect(response.body.data.checklist).toHaveLength(1);
+        expect(response.body.data.checklist[0].text).toBe('New item');
+        expect(response.body.data.checklist[0].checked).toBe(true);
+      });
+
+      it('should reject checklist item with empty text', async () => {
+        await request(app.getHttpServer())
+          .post(`/api/v1/users/me/vacancies/${hhId}`)
+          .set('Authorization', `Bearer ${authToken}`)
+          .expect(200);
+
+        await request(app.getHttpServer())
+          .patch(`/api/v1/users/me/vacancies/${hhId}/checklist`)
+          .set('Authorization', `Bearer ${authToken}`)
+          .send({ checklist: [{ text: '', checked: false }] })
+          .expect(400);
+      });
+
+      it('should reject more than 50 checklist items', async () => {
+        await request(app.getHttpServer())
+          .post(`/api/v1/users/me/vacancies/${hhId}`)
+          .set('Authorization', `Bearer ${authToken}`)
+          .expect(200);
+
+        const items = Array.from({ length: 51 }, (_, i) => ({
+          text: `Item ${i + 1}`,
+          checked: false,
+        }));
+
+        await request(app.getHttpServer())
+          .patch(`/api/v1/users/me/vacancies/${hhId}/checklist`)
+          .set('Authorization', `Bearer ${authToken}`)
+          .send({ checklist: items })
+          .expect(400);
+      });
+
+      it('should reject checklist item text exceeding 200 characters', async () => {
+        await request(app.getHttpServer())
+          .post(`/api/v1/users/me/vacancies/${hhId}`)
+          .set('Authorization', `Bearer ${authToken}`)
+          .expect(200);
+
+        await request(app.getHttpServer())
+          .patch(`/api/v1/users/me/vacancies/${hhId}/checklist`)
+          .set('Authorization', `Bearer ${authToken}`)
+          .send({ checklist: [{ text: 'a'.repeat(201), checked: false }] })
+          .expect(400);
+      });
+
+      it('should return 404 for unsaved vacancy', async () => {
+        await request(app.getHttpServer())
+          .patch(`/api/v1/users/me/vacancies/${hhId}/checklist`)
+          .set('Authorization', `Bearer ${authToken}`)
+          .send({ checklist: [{ text: 'test', checked: false }] })
+          .expect(404);
+      });
+
+      it('should fail without auth token (401)', async () => {
+        await request(app.getHttpServer())
+          .patch(`/api/v1/users/me/vacancies/${hhId}/checklist`)
+          .send({ checklist: [{ text: 'test', checked: false }] })
+          .expect(401);
+      });
+    });
+
+    describe('Notes and checklist in detail response', () => {
+      it('should return default notes and checklist for newly saved vacancy', async () => {
+        await request(app.getHttpServer())
+          .post(`/api/v1/users/me/vacancies/${hhId}`)
+          .set('Authorization', `Bearer ${authToken}`)
+          .expect(200);
+
+        const response = await request(app.getHttpServer())
+          .get(`/api/v1/users/me/vacancies/${hhId}`)
+          .set('Authorization', `Bearer ${authToken}`)
+          .expect(200);
+
+        expect(response.body.data.notes).toBe('');
+        expect(response.body.data.checklist).toEqual([]);
+      });
+
+      it('should persist notes and checklist across detail fetches', async () => {
+        await request(app.getHttpServer())
+          .post(`/api/v1/users/me/vacancies/${hhId}`)
+          .set('Authorization', `Bearer ${authToken}`)
+          .expect(200);
+
+        await request(app.getHttpServer())
+          .patch(`/api/v1/users/me/vacancies/${hhId}/notes`)
+          .set('Authorization', `Bearer ${authToken}`)
+          .send({ notes: 'Persisted note' })
+          .expect(200);
+
+        await request(app.getHttpServer())
+          .patch(`/api/v1/users/me/vacancies/${hhId}/checklist`)
+          .set('Authorization', `Bearer ${authToken}`)
+          .send({ checklist: [{ text: 'Persisted item', checked: true }] })
+          .expect(200);
+
+        const response = await request(app.getHttpServer())
+          .get(`/api/v1/users/me/vacancies/${hhId}`)
+          .set('Authorization', `Bearer ${authToken}`)
+          .expect(200);
+
+        expect(response.body.data.notes).toBe('Persisted note');
+        expect(response.body.data.checklist).toHaveLength(1);
+        expect(response.body.data.checklist[0].text).toBe('Persisted item');
+        expect(response.body.data.checklist[0].checked).toBe(true);
+      });
+    });
+
     describe('Per-user vacancy snapshots', () => {
       it('should create separate vacancy documents for different users', async () => {
         // User 1 saves vacancy

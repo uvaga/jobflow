@@ -18,6 +18,8 @@ import BusinessIcon from '@mui/icons-material/Business';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
 import WorkIcon from '@mui/icons-material/Work';
 import ScheduleIcon from '@mui/icons-material/Schedule';
+import HourglassBottomIcon from '@mui/icons-material/HourglassBottom';
+import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import ProgressStatusChip from './ProgressStatusChip';
 import SalaryDisplay from './SalaryDisplay';
 
@@ -58,6 +60,8 @@ interface VacancyCardVacancy {
     id: string;
     name: string;
   };
+  workingHours?: { id: string; name: string }[];
+  workScheduleByDays?: { id: string; name: string }[];
   published_at?: string;
   publishedAt?: string;
   isSaved?: boolean;
@@ -222,6 +226,28 @@ function VacancyCard({
                 <ScheduleIcon fontSize="small" color="action" />
                 <Typography variant="body2" color="text.secondary">
                   {vacancy.schedule.name}
+                </Typography>
+              </Box>
+            </Tooltip>
+          )}
+
+          {vacancy.workingHours && vacancy.workingHours.length > 0 && (
+            <Tooltip title="Working hours">
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <HourglassBottomIcon fontSize="small" color="action" />
+                <Typography variant="body2" color="text.secondary">
+                  {vacancy.workingHours.map((h) => h.name).join(', ')}
+                </Typography>
+              </Box>
+            </Tooltip>
+          )}
+
+          {vacancy.workScheduleByDays && vacancy.workScheduleByDays.length > 0 && (
+            <Tooltip title="Work schedule by days">
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <CalendarTodayIcon fontSize="small" color="action" />
+                <Typography variant="body2" color="text.secondary">
+                  {vacancy.workScheduleByDays.map((s) => s.name).join(', ')}
                 </Typography>
               </Box>
             </Tooltip>

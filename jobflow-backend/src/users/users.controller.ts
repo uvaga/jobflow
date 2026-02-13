@@ -18,6 +18,8 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { QuerySavedVacanciesDto } from './dto/query-saved-vacancies.dto';
 import { UpdateProgressDto } from './dto/update-progress.dto';
+import { UpdateNotesDto } from './dto/update-notes.dto';
+import { UpdateChecklistDto } from './dto/update-checklist.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { User } from './schemas/user.schema';
@@ -111,6 +113,34 @@ export class UsersController {
       user._id.toString(),
       hhId,
       dto.status,
+    );
+  }
+
+  @Patch('me/vacancies/:hhId/notes')
+  @ApiOperation({ summary: 'Update notes for saved vacancy' })
+  updateVacancyNotes(
+    @CurrentUser() user: User,
+    @Param('hhId') hhId: string,
+    @Body() dto: UpdateNotesDto,
+  ) {
+    return this.usersService.updateVacancyNotes(
+      user._id.toString(),
+      hhId,
+      dto.notes,
+    );
+  }
+
+  @Patch('me/vacancies/:hhId/checklist')
+  @ApiOperation({ summary: 'Update checklist for saved vacancy' })
+  updateVacancyChecklist(
+    @CurrentUser() user: User,
+    @Param('hhId') hhId: string,
+    @Body() dto: UpdateChecklistDto,
+  ) {
+    return this.usersService.updateVacancyChecklist(
+      user._id.toString(),
+      hhId,
+      dto.checklist,
     );
   }
 }

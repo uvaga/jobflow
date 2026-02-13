@@ -15,6 +15,8 @@ import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import VerifiedIcon from '@mui/icons-material/Verified';
 import HomeWorkIcon from '@mui/icons-material/HomeWork';
+import HourglassBottomIcon from '@mui/icons-material/HourglassBottom';
+import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import SalaryDisplay from '@/components/features/SalaryDisplay';
 import type { NormalizedVacancy } from '@/utils/vacancyNormalizer';
 
@@ -120,7 +122,24 @@ export default function VacancyHeaderInfo({ vacancy }: VacancyHeaderInfoProps) {
           </Tooltip>
         )}
         {vacancy.workingHours?.map((hours) => (
-          <Chip key={hours.id} label={hours.name} variant="outlined" size="small" />
+          <Tooltip key={hours.id} title="Working hours">
+            <Chip
+              icon={<HourglassBottomIcon />}
+              label={hours.name}
+              variant="outlined"
+              size="small"
+            />
+          </Tooltip>
+        ))}
+        {vacancy.workScheduleByDays?.map((schedule) => (
+          <Tooltip key={schedule.id} title="Work schedule by days">
+            <Chip
+              icon={<CalendarTodayIcon />}
+              label={schedule.name}
+              variant="outlined"
+              size="small"
+            />
+          </Tooltip>
         ))}
       </Stack>
     </Box>

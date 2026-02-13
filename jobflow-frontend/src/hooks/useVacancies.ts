@@ -8,10 +8,12 @@ import {
   removeVacancy,
   refreshSavedVacancy,
   updateVacancyProgress,
+  updateVacancyNotes,
+  updateVacancyChecklist,
   type VacancySearchParams,
   type SavedVacanciesParams,
 } from '@/services/vacancyService';
-import type { Vacancy, PaginatedResponse, SavedVacanciesResponse, SavedVacancyEntry } from '@/types';
+import type { Vacancy, PaginatedResponse, SavedVacanciesResponse, SavedVacancyEntry, ChecklistItem } from '@/types';
 import { useToast } from './useToast';
 
 // Query keys for consistent cache management
@@ -167,6 +169,46 @@ export function useUpdateSavedVacancyProgress() {
     onError: (error: Error) => {
       showError('Failed to update progress. Please try again.');
       console.error('Failed to update progress:', error);
+    },
+  });
+}
+
+/**
+ * Hook to update notes for a saved vacancy
+ */
+export function useUpdateSavedVacancyNotes() {
+  const queryClient = useQueryClient();
+  const { showSuccess, showError } = useToast();
+
+  return useMutation<SavedVacancyEntry, Error, { hhId: string; notes: string }>({
+    mutationFn: ({ hhId, notes }) => updateVacancyNotes(hhId, notes),
+    onSuccess: (_data, { hhId }) => {
+      void queryClient.invalidateQueries({ queryKey: vacancyKeys.savedDetail(hhId) });
+      showSuccess('Notes saved');
+    },
+    onError: (error: Error) => {
+      showError('Failed to save notes. Please try again.');
+      console.error('Failed to save notes:', error);
+    },
+  });
+}
+
+/**
+ * Hook to update checklist for a saved vacancy
+ */
+export function useUpdateSavedVacancyChecklist() {
+  const queryClient = useQueryClient();
+  const { showSuccess, showError } = useToast();
+
+  return useMutation<SavedVacancyEntry, Error, { hhId: string; checklist: ChecklistItem[] }>({
+    mutationFn: ({ hhId, checklist }) => updateVacancyChecklist(hhId, checklist),
+    onSuccess: (_data, { hhId }) => {
+      void queryClient.invalidateQueries({ queryKey: vacancyKeys.savedDetail(hhId) });
+      showSuccess('Checklist updated');
+    },
+    onError: (error: Error) => {
+      showError('Failed to update checklist. Please try again.');
+      console.error('Failed to update checklist:', error);
     },
   });
 }

@@ -1,6 +1,7 @@
 import axios, { AxiosError } from 'axios';
 import type { AxiosInstance, InternalAxiosRequestConfig } from 'axios';
 import type { ApiResponse } from '@/types/api.types';
+import { useAuthStore } from '@/store/authStore';
 
 const API_BASE_URL =
   (import.meta.env.VITE_API_BASE_URL as string | undefined) || '/api/v1';
@@ -67,8 +68,7 @@ apiClient.interceptors.response.use(
 
       // If already tried to refresh for this request, logout
       if (originalRequest._retry) {
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('refreshToken');
+        useAuthStore.getState().logout();
         window.location.href = '/login';
         return Promise.reject(error);
       }
@@ -126,8 +126,7 @@ apiClient.interceptors.response.use(
       } catch (refreshError) {
         // Refresh failed, logout user
         processQueue(refreshError instanceof Error ? refreshError : new Error('Token refresh failed'));
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('refreshToken');
+        useAuthStore.getState().logout();
         window.location.href = '/login';
         return Promise.reject(refreshError);
       } finally {
