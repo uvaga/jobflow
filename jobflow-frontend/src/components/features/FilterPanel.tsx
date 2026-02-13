@@ -58,6 +58,7 @@ function FilterPanel({
 
   // Load dictionary data from HH.ru API (lazy-loaded on accordion open)
   const { data: dictionaries, isLoading: isDictLoading } = useHhDictionaries(
+    expandedAccordions.has('salary') ||
     expandedAccordions.has('experience') ||
     expandedAccordions.has('schedule') ||
     expandedAccordions.has('employment')
@@ -86,6 +87,7 @@ function FilterPanel({
   const experienceOptions = dictionaries?.experience || [];
   const scheduleOptions = dictionaries?.schedule || [];
   const employmentOptions = dictionaries?.employment || [];
+  const currencyOptions = dictionaries?.currency || [];
 
   // Sync internal state when external filters change (e.g., back-navigation restoring URL params)
   // Use ref to track previous initialFilters to avoid comparing with current filters
@@ -103,6 +105,7 @@ function FilterPanel({
       prev.schedule !== initialFilters.schedule ||
       prev.employment !== initialFilters.employment ||
       prev.only_with_salary !== initialFilters.only_with_salary ||
+      prev.currency !== initialFilters.currency ||
       prev.page !== initialFilters.page ||
       prev.per_page !== initialFilters.per_page;
 
@@ -125,6 +128,7 @@ function FilterPanel({
       filters.industry,
       filters.professional_role,
       filters.salary,
+      filters.currency,
       filters.experience,
       filters.schedule,
       filters.employment,
@@ -162,6 +166,7 @@ function FilterPanel({
       industry: undefined,
       professional_role: undefined,
       salary: undefined,
+      currency: undefined,
       experience: undefined,
       schedule: undefined,
       employment: undefined,
@@ -430,6 +435,29 @@ function FilterPanel({
                 InputProps={{ inputProps: { min: 0, step: 10000 } }}
               />
 
+              <FormControl fullWidth disabled={isDictLoading}>
+                <InputLabel>Currency</InputLabel>
+                <Select
+                  value={filters.currency || ''}
+                  label="Currency"
+                  onChange={(e) =>
+                    handleFilterChange('currency', e.target.value || undefined)
+                  }
+                  startAdornment={
+                    isDictLoading ? <CircularProgress size={20} sx={{ mr: 1 }} /> : null
+                  }
+                >
+                  <MenuItem value="">
+                    <em>Any</em>
+                  </MenuItem>
+                  {currencyOptions.map((option) => (
+                    <MenuItem key={option.code} value={option.code}>
+                      {option.name} ({option.abbr})
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+
               <FormControlLabel
                 control={
                   <Checkbox
@@ -567,6 +595,7 @@ const arePropsEqual = (
     prevFilters.industry === nextFilters.industry &&
     prevFilters.professional_role === nextFilters.professional_role &&
     prevFilters.salary === nextFilters.salary &&
+    prevFilters.currency === nextFilters.currency &&
     prevFilters.experience === nextFilters.experience &&
     prevFilters.schedule === nextFilters.schedule &&
     prevFilters.employment === nextFilters.employment &&

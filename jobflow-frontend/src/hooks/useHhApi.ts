@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { useMemo } from 'react';
 import {
   searchHhVacancies,
   getHhVacancy,
@@ -168,6 +169,19 @@ export function useHhIndustries(enabled = true) {
   });
 }
 
-// Old utility hooks removed - replaced with direct API call hooks:
-// - useRegionsByCountry → useHhRegionsByCountryId
-// - useCitiesByRegion → useHhCitiesByRegionId
+/**
+ * Hook to build a currency code → abbreviation map from dictionaries
+ * Returns {} while loading (formatSalary falls back to raw code)
+ */
+export function useCurrencyMap(): Record<string, string> {
+  const { data: dictionaries } = useHhDictionaries(true);
+
+  return useMemo(() => {
+    if (!dictionaries?.currency) return {};
+    const map: Record<string, string> = {};
+    for (const c of dictionaries.currency) {
+      map[c.code] = c.abbr;
+    }
+    return map;
+  }, [dictionaries]);
+}

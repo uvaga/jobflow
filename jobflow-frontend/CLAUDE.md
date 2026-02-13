@@ -106,7 +106,8 @@ jobflow-frontend/
 8. On refresh failure: clears tokens, redirects to `/login`
 
 **Important**: Backend wraps all responses in `{ data: {...} }` via TransformInterceptor.
-- Services must access `response.data.data` for nested unwrapping
+- All services type Axios calls with `ApiResponse<T>` generic (from `@/types/api.types`) so `response.data.data` is properly typed
+- Example: `apiClient.get<ApiResponse<User>>('/users/me')` → `response.data.data` is `User`
 - Exception: Some endpoints have custom wrappers (e.g., `response.data.vacancies`)
 
 ### Form Handling Pattern
@@ -613,9 +614,10 @@ refreshSavedVacancy(hhId: string): Promise<Vacancy>
 updateVacancyProgress(hhId: string, status: string): Promise<SavedVacancyEntry>
 ```
 
-**Important**: All saved vacancy endpoints unwrap the TransformInterceptor wrapper:
+**Important**: All endpoints use `ApiResponse<T>` generic for proper typing:
 ```typescript
-return (response.data as unknown as { data: T }).data;
+const response = await apiClient.get<ApiResponse<SavedVacancyEntry>>(`/users/me/vacancies/${hhId}`);
+return response.data.data;
 ```
 
 ### HH.ru API Service (`src/services/hhApiService.ts`)
@@ -719,7 +721,7 @@ const normalized = useMemo(() => entry?.vacancy ? normalizeFromDb(entry.vacancy)
 ### API Types (`src/types/api.types.ts`)
 
 ```typescript
-ApiResponse<T> { data: T, message?: string, statusCode: number }
+ApiResponse<T> { data: T }
 ApiError { message: string, statusCode: number, error?: string, details?: Record }
 PaginatedResponse<T> { data: T[], total: number, page: number, limit: number, totalPages: number }
 ```

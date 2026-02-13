@@ -19,6 +19,7 @@ import LocationOnIcon from '@mui/icons-material/LocationOn';
 import WorkIcon from '@mui/icons-material/Work';
 import ScheduleIcon from '@mui/icons-material/Schedule';
 import ProgressStatusChip from './ProgressStatusChip';
+import SalaryDisplay from './SalaryDisplay';
 
 // Vacancy type that supports both hh.ru API and MongoDB formats
 interface VacancyCardVacancy {
@@ -74,25 +75,6 @@ interface VacancyCardProps {
   hhId?: string;
 }
 
-// Format salary display
-function formatSalary(salary?: VacancyCardVacancy['salary']): string {
-  if (!salary) return 'Salary not specified';
-
-  const { from, to, currency, gross } = salary;
-  const grossLabel = gross ? ' (gross)' : '';
-
-  if (from && to) {
-    return `${from.toLocaleString()} - ${to.toLocaleString()} ${currency}${grossLabel}`;
-  }
-  if (from) {
-    return `From ${from.toLocaleString()} ${currency}${grossLabel}`;
-  }
-  if (to) {
-    return `Up to ${to.toLocaleString()} ${currency}${grossLabel}`;
-  }
-  return 'Salary not specified';
-}
-
 // Format date display
 function formatDate(dateString?: string): string {
   if (!dateString) return '';
@@ -144,7 +126,6 @@ function VacancyCard({
     [onSave, vacancyId]
   );
 
-  const salaryText = formatSalary(vacancy.salary);
   const publishedText = formatDate(publishedDate);
   const savedState = vacancy.isSaved ?? isSaved;
 
@@ -209,9 +190,7 @@ function VacancyCard({
         </Box>
 
         {/* Salary */}
-        <Typography variant="h6" color="primary" sx={{ mb: 2 }}>
-          {salaryText}
-        </Typography>
+        <SalaryDisplay salary={vacancy.salary} />
 
         <Divider sx={{ mb: 2 }} />
 

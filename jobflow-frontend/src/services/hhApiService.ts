@@ -9,6 +9,7 @@ export interface HhSearchParams {
   area?: string;
   industry?: string;
   salary?: number;
+  currency?: string;
   only_with_salary?: boolean;
   experience?: string;
   employment?: string;

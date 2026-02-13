@@ -1,5 +1,6 @@
 import axios, { AxiosError } from 'axios';
 import type { AxiosInstance, InternalAxiosRequestConfig } from 'axios';
+import type { ApiResponse } from '@/types/api.types';
 
 const API_BASE_URL =
   (import.meta.env.VITE_API_BASE_URL as string | undefined) || '/api/v1';
@@ -97,7 +98,7 @@ apiClient.interceptors.response.use(
         }
 
         // Call refresh endpoint
-        const response = await axios.post<{ data: { accessToken: string; refreshToken: string } }>(
+        const response = await axios.post<ApiResponse<{ accessToken: string; refreshToken: string }>>(
           `${API_BASE_URL}/auth/refresh`,
           {},
           {

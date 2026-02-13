@@ -9,20 +9,20 @@ interface SalaryLike {
   gross?: boolean;
 }
 
-export function formatSalary(salary?: SalaryLike | null): string {
+export function formatSalary(salary?: SalaryLike | null, currencyMap?: Record<string, string>): string {
   if (!salary) return 'Salary not specified';
 
-  const { from, to, currency, gross } = salary;
-  const grossLabel = gross ? ' (gross)' : ' (net)';
+  const { from, to, currency } = salary;
+  const currencyLabel = currencyMap?.[currency] ?? currency;
 
   if (from && to) {
-    return `${from.toLocaleString()} - ${to.toLocaleString()} ${currency}${grossLabel}`;
+    return `${from.toLocaleString()} - ${to.toLocaleString()} ${currencyLabel}`;
   }
   if (from) {
-    return `From ${from.toLocaleString()} ${currency}${grossLabel}`;
+    return `From ${from.toLocaleString()} ${currencyLabel}`;
   }
   if (to) {
-    return `Up to ${to.toLocaleString()} ${currency}${grossLabel}`;
+    return `Up to ${to.toLocaleString()} ${currencyLabel}`;
   }
   return 'Salary not specified';
 }

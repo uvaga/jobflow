@@ -15,8 +15,7 @@ import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import VerifiedIcon from '@mui/icons-material/Verified';
 import HomeWorkIcon from '@mui/icons-material/HomeWork';
-
-import { formatSalary } from '@/utils/vacancyHelpers';
+import SalaryDisplay from '@/components/features/SalaryDisplay';
 import type { NormalizedVacancy } from '@/utils/vacancyNormalizer';
 
 interface VacancyHeaderInfoProps {
@@ -68,9 +67,7 @@ export default function VacancyHeaderInfo({ vacancy }: VacancyHeaderInfoProps) {
       </Box>
 
       {/* Salary */}
-      <Typography variant="h5" color="primary" sx={{ mb: 2 }}>
-        {formatSalary(vacancy.salary)}
-      </Typography>
+      <SalaryDisplay salary={vacancy.salary} variant="h5" />
 
       {/* Location & Work format */}
       <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap sx={{ mb: 2 }}>

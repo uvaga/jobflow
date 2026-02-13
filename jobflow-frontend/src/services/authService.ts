@@ -1,4 +1,5 @@
 import { apiClient } from '@/config/api';
+import type { ApiResponse } from '@/types/api.types';
 
 export interface RegisterDto {
   email: string;
@@ -27,7 +28,7 @@ export interface AuthResponse {
  * Register a new user
  */
 export const register = async (data: RegisterDto): Promise<AuthResponse> => {
-  const response = await apiClient.post<{ data: AuthResponse }>('/auth/register', data);
+  const response = await apiClient.post<ApiResponse<AuthResponse>>('/auth/register', data);
   return response.data.data;
 };
 
@@ -35,7 +36,7 @@ export const register = async (data: RegisterDto): Promise<AuthResponse> => {
  * Login user
  */
 export const login = async (data: LoginDto): Promise<AuthResponse> => {
-  const response = await apiClient.post<{ data: AuthResponse }>('/auth/login', data);
+  const response = await apiClient.post<ApiResponse<AuthResponse>>('/auth/login', data);
   return response.data.data;
 };
 
@@ -56,7 +57,7 @@ export const logout = async (): Promise<void> => {
  */
 export const refreshToken = async (): Promise<AuthResponse> => {
   const token = localStorage.getItem('refreshToken');
-  const response = await apiClient.post<{ data: AuthResponse }>(
+  const response = await apiClient.post<ApiResponse<AuthResponse>>(
     '/auth/refresh',
     {},
     { headers: { Authorization: `Bearer ${token}` } }

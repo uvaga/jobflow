@@ -1,5 +1,6 @@
 import { apiClient } from '@/config/api';
 import type { Vacancy, PaginatedResponse, SavedVacanciesResponse, SavedVacancyEntry } from '@/types';
+import type { ApiResponse } from '@/types/api.types';
 
 export interface VacancySearchParams {
   query?: string;
@@ -50,11 +51,11 @@ export const searchVacancies = async (
 export const fetchSavedVacancies = async (
   params?: SavedVacanciesParams,
 ): Promise<SavedVacanciesResponse> => {
-  const response = await apiClient.get<{ data: SavedVacanciesResponse }>(
+  const response = await apiClient.get<ApiResponse<SavedVacanciesResponse>>(
     '/users/me/vacancies',
     { params },
   );
-  return (response.data as unknown as { data: SavedVacanciesResponse }).data;
+  return response.data.data;
 };
 
 /**
@@ -64,10 +65,10 @@ export const fetchSavedVacancies = async (
 export const fetchSavedVacancyDetail = async (
   hhId: string,
 ): Promise<SavedVacancyEntry> => {
-  const response = await apiClient.get<{ data: SavedVacancyEntry }>(
+  const response = await apiClient.get<ApiResponse<SavedVacancyEntry>>(
     `/users/me/vacancies/${hhId}`,
   );
-  return (response.data as unknown as { data: SavedVacancyEntry }).data;
+  return response.data.data;
 };
 
 /**
@@ -89,10 +90,10 @@ export const removeVacancy = async (hhId: string): Promise<void> => {
  * Note: Backend TransformInterceptor wraps response in { data: {...} }
  */
 export const refreshSavedVacancy = async (hhId: string): Promise<Vacancy> => {
-  const response = await apiClient.post<{ data: Vacancy }>(
+  const response = await apiClient.post<ApiResponse<Vacancy>>(
     `/users/me/vacancies/${hhId}/refresh`,
   );
-  return (response.data as unknown as { data: Vacancy }).data;
+  return response.data.data;
 };
 
 /**
@@ -103,9 +104,9 @@ export const updateVacancyProgress = async (
   hhId: string,
   status: string,
 ): Promise<SavedVacancyEntry> => {
-  const response = await apiClient.patch<{ data: SavedVacancyEntry }>(
+  const response = await apiClient.patch<ApiResponse<SavedVacancyEntry>>(
     `/users/me/vacancies/${hhId}/progress`,
     { status },
   );
-  return (response.data as unknown as { data: SavedVacancyEntry }).data;
+  return response.data.data;
 };
