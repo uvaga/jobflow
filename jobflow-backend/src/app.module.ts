@@ -9,6 +9,7 @@ import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { VacanciesModule } from './vacancies/vacancies.module';
 import { VacancyProgressModule } from './vacancy-progress/vacancy-progress.module';
+import { EmployersModule } from './employers/employers.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
@@ -32,6 +33,7 @@ import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
     UsersModule,
     VacanciesModule,
     VacancyProgressModule,
+    EmployersModule,
   ],
   controllers: [AppController],
   providers: [

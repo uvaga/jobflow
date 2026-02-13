@@ -40,6 +40,10 @@ export class HhApiService {
     return this.makeRequest('/areas');
   }
 
+  async getEmployerById(id: string): Promise<any> {
+    return this.makeRequest(`/employers/${id}`);
+  }
+
   private async makeRequest<T>(endpoint: string, params?: any): Promise<T> {
     try {
       // Filter out undefined/null values to avoid hh.ru API errors

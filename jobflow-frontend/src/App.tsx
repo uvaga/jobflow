@@ -17,6 +17,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Profile from './pages/Profile';
 import ComponentTest from './pages/ComponentTest';
+import EmployerDetail from './pages/EmployerDetail';
 
 // Create MUI theme
 const theme = createTheme({
@@ -68,6 +69,7 @@ function App() {
               <Route index element={<Home />} />
               <Route path="search" element={<Search />} />
               <Route path="vacancy/:id" element={<VacancyDetail />} />
+              <Route path="employer/:employerId" element={<EmployerDetail />} />
               <Route path="test-components" element={<ComponentTest />} />
 
               {/* Auth routes */}

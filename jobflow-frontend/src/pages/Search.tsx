@@ -38,6 +38,7 @@ function parseFiltersFromUrl(sp: URLSearchParams): HhSearchParams {
     employment: sp.get('employment') || undefined,
     only_with_salary: sp.get('only_with_salary') === 'true' || undefined,
     currency: sp.get('currency') || undefined,
+    employer_id: sp.get('employer_id') || undefined,
   };
 }
 
@@ -54,6 +55,7 @@ function buildUrlParams(text: string, filters: HhSearchParams): URLSearchParams 
   if (filters.employment) params.set('employment', filters.employment);
   if (filters.only_with_salary) params.set('only_with_salary', 'true');
   if (filters.currency) params.set('currency', filters.currency);
+  if (filters.employer_id) params.set('employer_id', filters.employer_id);
   if (filters.page && filters.page > 0) params.set('page', String(filters.page));
   if (filters.per_page && filters.per_page !== 20) params.set('per_page', String(filters.per_page));
   return params;

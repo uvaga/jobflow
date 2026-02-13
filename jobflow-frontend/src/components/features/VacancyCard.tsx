@@ -1,4 +1,5 @@
 import { memo, useCallback } from 'react';
+import { Link as RouterLink } from 'react-router-dom';
 import {
   Card,
   CardContent,
@@ -173,18 +174,26 @@ function VacancyCard({
         </Box>
 
         {/* Employer */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
-          {logoUrl ? (
-            <Avatar src={logoUrl} alt={vacancy.employer.name} sx={{ width: 32, height: 32 }}>
-              <BusinessIcon />
-            </Avatar>
-          ) : (
-            <Avatar sx={{ width: 32, height: 32, bgcolor: 'primary.light' }}>
-              <BusinessIcon fontSize="small" />
-            </Avatar>
-          )}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }} onClick={(e) => e.stopPropagation()}>
+          <RouterLink to={`/employer/${vacancy.employer.id}`} style={{ textDecoration: 'none', display: 'flex' }}>
+            {logoUrl ? (
+              <Avatar src={logoUrl} alt={vacancy.employer.name} sx={{ width: 32, height: 32 }}>
+                <BusinessIcon />
+              </Avatar>
+            ) : (
+              <Avatar sx={{ width: 32, height: 32, bgcolor: 'primary.light' }}>
+                <BusinessIcon fontSize="small" />
+              </Avatar>
+            )}
+          </RouterLink>
           <Box>
-            <Typography variant="body2" fontWeight={500}>
+            <Typography
+              variant="body2"
+              fontWeight={500}
+              component={RouterLink}
+              to={`/employer/${vacancy.employer.id}`}
+              sx={{ color: 'inherit', textDecoration: 'none', '&:hover': { color: 'primary.main' } }}
+            >
               {vacancy.employer.name}
             </Typography>
             {vacancy.employer.trusted && (

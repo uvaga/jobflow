@@ -15,6 +15,7 @@ export interface HhSearchParams {
   employment?: string;
   schedule?: string;
   professional_role?: string;
+  employer_id?: string;
   page?: number;
   per_page?: number;
 }

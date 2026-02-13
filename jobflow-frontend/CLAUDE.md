@@ -165,6 +165,7 @@ const handleSubmit = useCallback(async (values: FormValues) => {
 | `/` | Home | Public | Landing page |
 | `/search` | Search | Public | Vacancy search (save button requires auth) |
 | `/vacancy/:id` | VacancyDetail | Public | Vacancy details page |
+| `/employer/:employerId` | EmployerDetail | Public | Employer details page |
 | `/login` | Login | Public | User login |
 | `/register` | Register | Public | User registration |
 | `/vacancies` | SavedVacancies | Protected | User's saved vacancies (filterable, sortable) |
@@ -185,6 +186,7 @@ const handleSubmit = useCallback(async (values: FormValues) => {
   {/* Public routes */}
   <Route index element={<Home />} />
   <Route path="search" element={<Search />} />
+  <Route path="employer/:employerId" element={<EmployerDetail />} />
 
   {/* Protected routes (wrapped with ProtectedRoute) */}
   <Route element={<ProtectedRoute />}>
@@ -248,6 +250,7 @@ const handleSubmit = useCallback(async (values: FormValues) => {
 - Optional save/unsave button (authenticated users only)
 - Optional click handler for navigation
 - Optional progress status chip and saved date display
+- Employer name and logo link to `/employer/:employerId` page
 - Props: `vacancy`, `onClick`, `showSaveButton`, `isSaved`, `onSave`, `hhId?`, `progressStatus?`, `savedDate?`
 
 **ProgressStatusChip**
@@ -283,6 +286,7 @@ Reusable components shared between VacancyDetail and SavedVacancyDetail pages. A
 **VacancyDetailSkeleton** - Loading skeleton for vacancy detail pages (MUI Skeleton components)
 
 **VacancyHeaderInfo** - Employer logo, vacancy title, salary, location, experience, schedule, employment, work format, working hours
+- Employer name and logo link to `/employer/:employerId` page (no external "View company" link)
 
 **KeySkillsSection** - Displays key skills as MUI Chip components
 
@@ -347,6 +351,16 @@ Reusable components shared between VacancyDetail and SavedVacancyDetail pages. A
 - Save/unsave button for authenticated users
 - "Apply for this job" and "View original posting" action buttons
 - VacancyDetailSkeleton for loading state
+
+**EmployerDetail** (`src/pages/EmployerDetail.tsx`) **Fully Implemented**
+- Public page showing employer details from hh.ru API (via backend proxy)
+- Uses `useEmployer(employerId)` hook
+- Displays: company logo, name, verified badge, IT accreditation, employer type
+- Open vacancies count, location, website link
+- Industries as MUI Chips
+- Company description (HTML rendered)
+- EmployerDetailSkeleton for loading state
+- Error and not-found states
 
 **SavedVacancies** (`src/pages/SavedVacancies.tsx`) **Fully Implemented**
 - Protected route showing user's saved vacancies from MongoDB
@@ -518,6 +532,15 @@ Reusable components shared between VacancyDetail and SavedVacancyDetail pages. A
 - Cached for 1 hour
 - Usage: `useHhIndustries(expandedAccordions.has('industry'))`
 
+### Employer Hooks (`src/hooks/useEmployer.ts`)
+
+**useEmployer(id, enabled)**
+- Query for employer details by ID
+- Fetches from backend which proxies to hh.ru API
+- Returns: `EmployerDetail`
+- Caches for 10 minutes
+- Usage: `useEmployer('1102510')`
+
 ### User Hooks (`src/hooks/useUser.ts`)
 
 **useProfile(enabled)**
@@ -645,6 +668,14 @@ flattenIndustries(response): HhIndustryItem[]
 - Base URL: `https://api.hh.ru`
 - Locale: `EN` (configurable via `VITE_HH_API_LOCALE`)
 - Uses separate axios instance (not apiClient)
+
+### Employer Service (`src/services/employerService.ts`)
+
+```typescript
+fetchEmployer(id: string): Promise<EmployerDetail>
+```
+
+**EmployerDetail Interface**: `id`, `name`, `description`, `branded_description`, `site_url`, `alternate_url`, `area`, `logo_urls`, `industries`, `open_vacancies`, `trusted`, `accredited_it_employer`, `type`, `vacancies_url`
 
 ### User Service (`src/services/userService.ts`)
 

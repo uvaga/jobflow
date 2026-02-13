@@ -16,6 +16,6 @@ import { Vacancy, VacancySchema } from './schemas/vacancy.schema';
   ],
   controllers: [VacanciesController],
   providers: [VacanciesService, HhApiService],
-  exports: [VacanciesService],
+  exports: [VacanciesService, HhApiService],
 })
 export class VacanciesModule {}

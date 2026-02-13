@@ -108,7 +108,7 @@ docker exec -it jobflow-mongodb mongosh -u jobflow_user -p jobflow_dev_password 
 - Secure password hashing with bcrypt (10 rounds)
 - Frontend Zustand store with localStorage persistence
 
-**Backend Modules** (4 modules, 152 passing e2e tests):
+**Backend Modules** (5 modules, 152 passing e2e tests):
 - **Auth Module**: Register, login, refresh, logout endpoints
   - Dual JWT strategies (access + refresh with different secrets)
   - RefreshTokenGuard for token rotation
@@ -139,6 +139,10 @@ docker exec -it jobflow-mongodb mongosh -u jobflow_user -p jobflow_dev_password 
   - Status enum: SAVED, APPLIED, INTERVIEW_SCHEDULED, INTERVIEW_COMPLETED, REJECTED, OFFER_RECEIVED, OFFER_ACCEPTED, WITHDRAWN
   - Note: New progress tracking is embedded in user.savedVacancies subdocuments
 
+- **Employers Module**: Employer details from external API
+  - GET `/employers/:id` - Get employer details (proxied from hh.ru API, public)
+  - Uses HhApiService from VacanciesModule
+
 **Frontend Pages**:
 - **Home**: Landing page
 - **Login/Register**: Formik + Yup validation forms with error handling
@@ -162,6 +166,12 @@ docker exec -it jobflow-mongodb mongosh -u jobflow_user -p jobflow_dev_password 
   - Progress status management (update, view history)
   - Refresh vacancy data, remove from saved
   - Key skills, description, additional info sections
+- **Employer Detail** (`/employer/:employerId`): Public employer detail page from external API
+  - Company logo, name, verified badge, IT accreditation
+  - Location, website link, employer type, open vacancies count
+  - Industries list, company description (HTML)
+  - Link to employer profile on hh.ru
+  - Employer name/logo in VacancyCard and VacancyHeaderInfo link to this page
 
 **Frontend Infrastructure**:
 - **State Management**: Zustand for auth (persisted), React Query for server state
@@ -170,7 +180,7 @@ docker exec -it jobflow-mongodb mongosh -u jobflow_user -p jobflow_dev_password 
   - Response interceptor: Automatic token refresh on 401 with request queuing
   - Unwraps backend TransformInterceptor wrapper (`response.data.data`)
 - **Routing**: React Router with protected routes
-  - Public routes: /, /search, /vacancy/:id, /login, /register
+  - Public routes: /, /search, /vacancy/:id, /employer/:employerId, /login, /register
   - Protected routes: /vacancies, /vacancies/:id, /vacancy-progress, /profile
 - **Components**: Reusable library
   - Layout: Header (with user menu), Footer, ProtectedRoute
@@ -205,6 +215,9 @@ docker exec -it jobflow-mongodb mongosh -u jobflow_user -p jobflow_dev_password 
 - `refreshVacancy()` → POST `/api/v1/users/me/vacancies/:hhId/refresh`
 - `updateVacancyProgress()` → PATCH `/api/v1/users/me/vacancies/:hhId/progress`
 - `changePassword()` → PATCH `/api/v1/users/me/password` (requires current password)
+
+**Employer endpoints**:
+- `getEmployerById()` → GET `/api/v1/employers/:id` (proxied from hh.ru API)
 
 **Frontend must match**:
 - Service functions: `fetchSavedVacancies()`, `fetchSavedVacancyDetail()`, `addVacancy()`, `removeVacancy()`, `refreshSavedVacancy()`, `updateVacancyProgress()`

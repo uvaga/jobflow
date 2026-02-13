@@ -29,6 +29,10 @@ jobflow-backend/
 │   │   ├── vacancy-progress.controller.ts  # CRUD, statistics
 │   │   ├── vacancy-progress.service.ts
 │   │   └── vacancy-progress.module.ts
+│   ├── employers/               # Employer details module
+│   │   ├── employers.controller.ts  # Get employer by ID
+│   │   ├── employers.service.ts
+│   │   └── employers.module.ts
 │   ├── common/                  # Shared utilities
 │   │   ├── decorators/          # @Public(), @CurrentUser()
 │   │   ├── guards/              # JwtAuthGuard, RefreshTokenGuard
@@ -223,6 +227,9 @@ return { accessToken: '...', user: {...} };
 - `GET /vacancies/search` - Search vacancies via external API
 - `GET /vacancies/dictionaries` - Get reference data (areas, schedules, etc.)
 - `GET /vacancies/:id` - Get vacancy by external ID (with 7-day caching)
+
+### Employers (Public)
+- `GET /employers/:id` - Get employer details from hh.ru API (proxied)
 
 ### Vacancy Progress (Protected)
 - `POST /vacancy-progress` - Create application tracking
@@ -464,6 +471,8 @@ export class HhApiService {
       throw new HttpException('Search failed', HttpStatus.BAD_GATEWAY);
     }
   }
+
+  // Also supports: getEmployerById(id) → GET /employers/{id} on hh.ru API
 }
 ```
 

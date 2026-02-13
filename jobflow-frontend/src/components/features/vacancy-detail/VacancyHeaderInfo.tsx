@@ -1,10 +1,10 @@
+import { Link as RouterLink } from 'react-router-dom';
 import {
   Box,
   Typography,
   Avatar,
   Stack,
   Chip,
-  Link,
   Tooltip,
 } from '@mui/material';
 import BusinessIcon from '@mui/icons-material/Business';
@@ -12,7 +12,6 @@ import LocationOnIcon from '@mui/icons-material/LocationOn';
 import WorkIcon from '@mui/icons-material/Work';
 import ScheduleIcon from '@mui/icons-material/Schedule';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
-import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import VerifiedIcon from '@mui/icons-material/Verified';
 import HomeWorkIcon from '@mui/icons-material/HomeWork';
 import HourglassBottomIcon from '@mui/icons-material/HourglassBottom';
@@ -34,18 +33,25 @@ export default function VacancyHeaderInfo({ vacancy }: VacancyHeaderInfoProps) {
 
       {/* Employer */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-        {vacancy.employer.logoUrl ? (
-          <Avatar src={vacancy.employer.logoUrl} alt={vacancy.employer.name} sx={{ width: 56, height: 56 }}>
-            <BusinessIcon />
-          </Avatar>
-        ) : (
-          <Avatar sx={{ width: 56, height: 56, bgcolor: 'primary.light' }}>
-            <BusinessIcon />
-          </Avatar>
-        )}
+        <RouterLink to={`/employer/${vacancy.employer.id}`} style={{ textDecoration: 'none' }}>
+          {vacancy.employer.logoUrl ? (
+            <Avatar src={vacancy.employer.logoUrl} alt={vacancy.employer.name} sx={{ width: 56, height: 56 }}>
+              <BusinessIcon />
+            </Avatar>
+          ) : (
+            <Avatar sx={{ width: 56, height: 56, bgcolor: 'primary.light' }}>
+              <BusinessIcon />
+            </Avatar>
+          )}
+        </RouterLink>
         <Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Typography variant="h6">
+            <Typography
+              variant="h6"
+              component={RouterLink}
+              to={`/employer/${vacancy.employer.id}`}
+              sx={{ color: 'inherit', textDecoration: 'none', '&:hover': { color: 'primary.main' } }}
+            >
               {vacancy.employer.name}
             </Typography>
             {vacancy.employer.trusted && (
@@ -55,16 +61,6 @@ export default function VacancyHeaderInfo({ vacancy }: VacancyHeaderInfoProps) {
               <Chip label="IT Accredited" size="small" color="info" />
             )}
           </Box>
-          {vacancy.employer.alternateUrl && (
-            <Link
-              href={vacancy.employer.alternateUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
-            >
-              View company <OpenInNewIcon fontSize="small" />
-            </Link>
-          )}
         </Box>
       </Box>
 
