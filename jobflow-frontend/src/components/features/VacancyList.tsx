@@ -45,6 +45,7 @@ interface VacancyListProps {
   onVacancyClick?: (vacancyId: string) => void;
   onSave?: (vacancyId: string) => void;
   showSaveButton?: boolean;
+  savedVacancyIds?: Set<string>;
 }
 
 function VacancyList({
@@ -54,6 +55,7 @@ function VacancyList({
   onVacancyClick,
   onSave,
   showSaveButton = true,
+  savedVacancyIds,
 }: VacancyListProps) {
   if (isLoading) {
     return <LoadingSpinner message="Loading vacancies..." />;
@@ -93,17 +95,20 @@ function VacancyList({
 
   return (
     <Grid container spacing={3}>
-      {vacancies.map((vacancy) => (
-        <Grid key={vacancy.id || vacancy._id} size={{ xs: 12, sm: 6, md: 4 }}>
-          <VacancyCard
-            vacancy={vacancy}
-            onClick={onVacancyClick}
-            showSaveButton={showSaveButton}
-            isSaved={vacancy.isSaved}
-            onSave={onSave}
-          />
-        </Grid>
-      ))}
+      {vacancies.map((vacancy) => {
+        const vacancyId = vacancy.id || vacancy._id || '';
+        return (
+          <Grid key={vacancyId} size={{ xs: 12, sm: 6, md: 4 }}>
+            <VacancyCard
+              vacancy={vacancy}
+              onClick={onVacancyClick}
+              showSaveButton={showSaveButton}
+              isSaved={savedVacancyIds ? savedVacancyIds.has(vacancyId) : vacancy.isSaved}
+              onSave={onSave}
+            />
+          </Grid>
+        );
+      })}
     </Grid>
   );
 }

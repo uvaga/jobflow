@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, type QueryKey } from '@tanstack/react-query';
 import {
   fetchVacancy,
   searchVacancies,
@@ -88,45 +88,112 @@ export function useSavedVacancyDetail(hhId: string | undefined, enabled = true) 
 
 /**
  * Hook to add a vacancy to user's saved list
+ * Uses optimistic updates for instant UI feedback.
  */
 export function useAddVacancy() {
   const queryClient = useQueryClient();
   const { showSuccess, showError } = useToast();
 
-  return useMutation<void, Error, string>({
+  return useMutation<void, Error, string, { previousData: [QueryKey, SavedVacanciesResponse | undefined][] }>({
     mutationFn: addVacancy,
+
+    onMutate: async (hhId) => {
+      await queryClient.cancelQueries({ queryKey: vacancyKeys.saved() });
+
+      const previousData = queryClient.getQueriesData<SavedVacanciesResponse>({
+        queryKey: [...vacancyKeys.saved(), 'list'],
+      });
+
+      const stubEntry: SavedVacancyEntry = {
+        vacancy: { hhId } as Vacancy,
+        progress: [],
+        notes: '',
+        checklist: [],
+      };
+
+      for (const [queryKey, data] of previousData) {
+        if (data) {
+          queryClient.setQueryData<SavedVacanciesResponse>(queryKey, {
+            ...data,
+            items: [...data.items, stubEntry],
+            total: data.total + 1,
+          });
+        }
+      }
+
+      return { previousData };
+    },
+
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: vacancyKeys.saved() });
       showSuccess('Vacancy saved successfully');
     },
-    onError: (error: Error) => {
+
+    onError: (error, _hhId, context) => {
+      if (context?.previousData) {
+        for (const [queryKey, data] of context.previousData) {
+          queryClient.setQueryData(queryKey, data);
+        }
+      }
       showError('Failed to save vacancy. Please try again.');
       console.error('Failed to add vacancy:', error);
+    },
+
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: vacancyKeys.saved() });
     },
   });
 }
 
 /**
  * Hook to remove a vacancy from user's saved list
+ * Uses optimistic updates for instant UI feedback.
+ * Only invalidates saved list queries (not detail) to avoid 404 refetch on detail page.
  */
 export function useRemoveVacancy() {
   const queryClient = useQueryClient();
   const { showSuccess, showError } = useToast();
 
-  return useMutation<void, Error, string>({
+  return useMutation<void, Error, string, { previousData: [QueryKey, SavedVacanciesResponse | undefined][] }>({
     mutationFn: removeVacancy,
+
+    onMutate: async (hhId) => {
+      await queryClient.cancelQueries({ queryKey: vacancyKeys.saved() });
+
+      const previousData = queryClient.getQueriesData<SavedVacanciesResponse>({
+        queryKey: [...vacancyKeys.saved(), 'list'],
+      });
+
+      for (const [queryKey, data] of previousData) {
+        if (data) {
+          queryClient.setQueryData<SavedVacanciesResponse>(queryKey, {
+            ...data,
+            items: data.items.filter((entry) => entry.vacancy?.hhId !== hhId),
+            total: Math.max(0, data.total - 1),
+          });
+        }
+      }
+
+      return { previousData };
+    },
+
     onSuccess: () => {
-      // Only invalidate saved list queries — not detail queries.
-      // If removing from the detail page, the detail observer would cause a
-      // 404 refetch before the component navigates away and unmounts.
+      showSuccess('Vacancy removed from saved list');
+    },
+
+    onError: (error, _hhId, context) => {
+      if (context?.previousData) {
+        for (const [queryKey, data] of context.previousData) {
+          queryClient.setQueryData(queryKey, data);
+        }
+      }
+      showError('Failed to remove vacancy. Please try again.');
+      console.error('Failed to remove vacancy:', error);
+    },
+
+    onSettled: () => {
       void queryClient.invalidateQueries({
         queryKey: [...vacancyKeys.saved(), 'list'],
       });
-      showSuccess('Vacancy removed from saved list');
-    },
-    onError: (error: Error) => {
-      showError('Failed to remove vacancy. Please try again.');
-      console.error('Failed to remove vacancy:', error);
     },
   });
 }

@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Box,
@@ -14,6 +14,7 @@ import FilterListIcon from '@mui/icons-material/FilterList';
 import CloseIcon from '@mui/icons-material/Close';
 
 import SearchBar from '@/components/common/SearchBar';
+import ConfirmDialog from '@/components/common/ConfirmDialog';
 import FilterPanel from '@/components/features/FilterPanel';
 import VacancyList from '@/components/features/VacancyList';
 import Pagination from '@/components/common/Pagination';
@@ -76,6 +77,7 @@ export default function Search() {
   // Get search text from URL
   const searchText = searchParams.get('text') || '';
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
+  const [vacancyToRemove, setVacancyToRemove] = useState<string | null>(null);
 
   // Build search params for API call (only search if > 2 characters)
   const apiSearchParams = useMemo<HhSearchParams>(
@@ -102,6 +104,12 @@ export default function Search() {
     if (!savedData?.items) return new Set<string>();
     return new Set(savedData.items.map((entry) => entry.vacancy?.hhId).filter(Boolean) as string[]);
   }, [savedData]);
+
+  // Ref to avoid recreating callbacks when savedVacancyIds changes.
+  // This keeps onSave stable so React.memo on VacancyCard prevents
+  // unnecessary re-renders of all 20 cards on save/unsave.
+  const savedVacancyIdsRef = useRef(savedVacancyIds);
+  savedVacancyIdsRef.current = savedVacancyIds;
 
   // Handlers
   const handleSearchChange = useCallback((text: string) => {
@@ -132,13 +140,27 @@ export default function Search() {
     navigate(`/vacancy/${vacancyId}`);
   }, [navigate]);
 
+  const addMutate = addVacancyMutation.mutate;
   const handleSaveToggle = useCallback((vacancyId: string) => {
-    if (savedVacancyIds.has(vacancyId)) {
-      removeVacancyMutation.mutate(vacancyId);
+    if (savedVacancyIdsRef.current.has(vacancyId)) {
+      setVacancyToRemove(vacancyId);
     } else {
-      addVacancyMutation.mutate(vacancyId);
+      addMutate(vacancyId);
     }
-  }, [savedVacancyIds, addVacancyMutation, removeVacancyMutation]);
+  }, [addMutate]);
+
+  const removeMutate = removeVacancyMutation.mutate;
+  const handleConfirmRemove = useCallback(() => {
+    if (vacancyToRemove) {
+      removeMutate(vacancyToRemove, {
+        onSettled: () => setVacancyToRemove(null),
+      });
+    }
+  }, [vacancyToRemove, removeMutate]);
+
+  const handleCancelRemove = useCallback(() => {
+    setVacancyToRemove(null);
+  }, []);
 
   // Extract data from hh.ru response
   const vacancies = data?.items || [];
@@ -146,16 +168,6 @@ export default function Search() {
   const currentPage = (data?.page || 0) + 1; // Convert to 1-indexed for UI
   const totalItems = data?.found || 0;
   const itemsPerPage = data?.per_page || 20;
-
-  // Add isSaved flag to vacancies
-  const vacanciesWithSaveState = useMemo(
-    () => vacancies.map((vacancy) => ({
-      ...vacancy,
-      _id: vacancy.id, // Add _id for compatibility
-      isSaved: savedVacancyIds.has(vacancy.id),
-    })),
-    [vacancies, savedVacancyIds]
-  );
 
   return (
     <Box sx={{ py: 3, px: { xs: 2, sm: 3, md: 4 } }}>
@@ -208,7 +220,8 @@ export default function Search() {
           )}
 
           <VacancyList
-            vacancies={vacanciesWithSaveState}
+            vacancies={vacancies}
+            savedVacancyIds={savedVacancyIds}
             isLoading={isLoading}
             error={error}
             onVacancyClick={handleVacancyClick}
@@ -263,6 +276,17 @@ export default function Search() {
           </Drawer>
         </>
       )}
+
+      {/* Confirm unsave dialog */}
+      <ConfirmDialog
+        open={vacancyToRemove !== null}
+        title="Remove Vacancy"
+        message="Are you sure you want to remove this vacancy from your saved list? This action cannot be undone."
+        confirmText="Remove"
+        onConfirm={handleConfirmRemove}
+        onCancel={handleCancelRemove}
+        loading={removeVacancyMutation.isPending}
+      />
     </Box>
   );
 }
