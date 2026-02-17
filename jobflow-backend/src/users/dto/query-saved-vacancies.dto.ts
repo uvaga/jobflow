@@ -9,7 +9,7 @@ import {
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { VacancyProgressStatus } from '../../vacancy-progress/enums/vacancy-progress-status.enum';
+import { VacancyProgressStatus } from '../../vacancies/enums/vacancy-progress-status.enum';
 
 export class QuerySavedVacanciesDto {
   @ApiPropertyOptional({ enum: VacancyProgressStatus })

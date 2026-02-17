@@ -181,7 +181,7 @@ docker exec -it jobflow-mongodb mongosh -u jobflow_user -p jobflow_dev_password 
   - Unwraps backend TransformInterceptor wrapper (`response.data.data`)
 - **Routing**: React Router with protected routes
   - Public routes: /, /search, /vacancy/:id, /employer/:employerId, /login, /register
-  - Protected routes: /vacancies, /vacancies/:id, /vacancy-progress, /profile
+  - Protected routes: /vacancies, /vacancies/:id, /profile
 - **Components**: Reusable library
   - Layout: Header (with user menu), Footer, ProtectedRoute
   - Features: VacancyList, VacancyCard (with MUI Tooltips), FilterPanel, ProgressStatusChip
@@ -200,9 +200,6 @@ docker exec -it jobflow-mongodb mongosh -u jobflow_user -p jobflow_dev_password 
 - Change Password section: Current password verification, new password with strength rules
 - Updates Zustand auth store on profile save
 - Toast notifications for success/error
-
-### 🚧 Placeholder Pages (Future Implementation)
-- Vacancy progress tracking page (`/vacancy-progress`)
 
 ## 🔑 Key Conventions
 

@@ -170,7 +170,6 @@ const handleSubmit = useCallback(async (values: FormValues) => {
 | `/register` | Register | Public | User registration |
 | `/vacancies` | SavedVacancies | Protected | User's saved vacancies (filterable, sortable) |
 | `/vacancies/:id` | SavedVacancyDetail | Protected | Saved vacancy detail with progress management |
-| `/vacancy-progress` | VacancyProgress | Protected | Job application tracking |
 | `/profile` | Profile | Protected | User profile management |
 | `/test-components` | ComponentTest | Public | Component testing page (dev) |
 
@@ -192,7 +191,6 @@ const handleSubmit = useCallback(async (values: FormValues) => {
   <Route element={<ProtectedRoute />}>
     <Route path="vacancies" element={<SavedVacancies />} />
     <Route path="vacancies/:id" element={<SavedVacancyDetail />} />
-    <Route path="vacancy-progress" element={<VacancyProgress />} />
   </Route>
 </Route>
 ```

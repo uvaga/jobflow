@@ -8,7 +8,7 @@ import { ChangePasswordDto } from './dto/change-password.dto';
 import { QuerySavedVacanciesDto } from './dto/query-saved-vacancies.dto';
 import { VacanciesService } from '../vacancies/vacancies.service';
 import { Vacancy } from '../vacancies/schemas/vacancy.schema';
-import { VacancyProgressStatus } from '../vacancy-progress/enums/vacancy-progress-status.enum';
+import { VacancyProgressStatus } from '../vacancies/enums/vacancy-progress-status.enum';
 import * as bcrypt from 'bcrypt';
 
 @Injectable()
