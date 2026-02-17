@@ -77,13 +77,6 @@ export default function Header() {
                 >
                   Saved
                 </Button>
-                <Button
-                  component={RouterLink}
-                  to="/vacancy-progress"
-                  sx={{ color: 'white' }}
-                >
-                  Applications
-                </Button>
               </>
             )}
           </Box>

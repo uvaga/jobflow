@@ -29,7 +29,7 @@ interface VacancyCardVacancy {
   id?: string;
   _id?: string;
   name: string;
-  employer: {
+  employer?: {
     id: string;
     name: string;
     url?: string;
@@ -116,8 +116,9 @@ function VacancyCard({
   // Support both published_at and publishedAt
   const publishedDate = vacancy.published_at || vacancy.publishedAt;
 
-  // Support both logo_urls and logoUrls
-  const logoUrl = vacancy.employer.logo_urls?.['90'] || vacancy.employer.logoUrls?.['90'];
+  // Support both logo_urls and logoUrls (employer may be missing for some vacancies)
+  const employer = vacancy.employer;
+  const logoUrl = employer?.logo_urls?.['90'] || employer?.logoUrls?.['90'];
 
   const handleCardClick = useCallback(() => {
     if (onClick) onClick(vacancyId);
@@ -174,10 +175,11 @@ function VacancyCard({
         </Box>
 
         {/* Employer */}
+        {employer && (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }} onClick={(e) => e.stopPropagation()}>
-          <RouterLink to={`/employer/${vacancy.employer.id}`} style={{ textDecoration: 'none', display: 'flex' }}>
+          <RouterLink to={`/employer/${employer.id}`} style={{ textDecoration: 'none', display: 'flex' }}>
             {logoUrl ? (
-              <Avatar src={logoUrl} alt={vacancy.employer.name} sx={{ width: 32, height: 32 }}>
+              <Avatar src={logoUrl} alt={employer.name} sx={{ width: 32, height: 32 }}>
                 <BusinessIcon />
               </Avatar>
             ) : (
@@ -191,16 +193,17 @@ function VacancyCard({
               variant="body2"
               fontWeight={500}
               component={RouterLink}
-              to={`/employer/${vacancy.employer.id}`}
+              to={`/employer/${employer.id}`}
               sx={{ color: 'inherit', textDecoration: 'none', '&:hover': { color: 'primary.main' } }}
             >
-              {vacancy.employer.name}
+              {employer.name}
             </Typography>
-            {vacancy.employer.trusted && (
+            {employer.trusted && (
               <Chip label="Verified" size="small" color="success" sx={{ height: 16, fontSize: '0.65rem' }} />
             )}
           </Box>
         </Box>
+        )}
 
         {/* Salary */}
         <SalaryDisplay salary={vacancy.salary} />
@@ -209,6 +212,7 @@ function VacancyCard({
 
         {/* Details */}
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+          {vacancy.area && (
           <Tooltip title="Location">
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <LocationOnIcon fontSize="small" color="action" />
@@ -217,6 +221,7 @@ function VacancyCard({
               </Typography>
             </Box>
           </Tooltip>
+          )}
 
           {vacancy.experience && (
             <Tooltip title="Experience">

@@ -208,7 +208,7 @@ const handleSubmit = useCallback(async (values: FormValues) => {
 **Header.tsx**
 - Sticky app bar with navigation
 - **Public Navigation**: "Search Jobs"
-- **Authenticated Navigation**: "Search Jobs", "Saved", "Applications"
+- **Authenticated Navigation**: "Search Jobs", "Saved"
 - **User Menu** (authenticated):
   - User name display
   - Profile link

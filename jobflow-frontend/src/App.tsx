@@ -12,7 +12,6 @@ import Search from './pages/Search';
 import VacancyDetail from './pages/VacancyDetail';
 import SavedVacancies from './pages/SavedVacancies';
 import SavedVacancyDetail from './pages/SavedVacancyDetail';
-import VacancyProgress from './pages/VacancyProgress';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Profile from './pages/Profile';
@@ -80,7 +79,6 @@ function App() {
               <Route element={<ProtectedRoute />}>
                 <Route path="vacancies" element={<SavedVacancies />} />
                 <Route path="vacancies/:id" element={<SavedVacancyDetail />} />
-                <Route path="vacancy-progress" element={<VacancyProgress />} />
                 <Route path="profile" element={<Profile />} />
               </Route>
 

@@ -23,12 +23,6 @@ jobflow-backend/
 │   │   ├── vacancies.service.ts
 │   │   ├── hh-api.service.ts    # HeadHunter API client
 │   │   └── vacancies.module.ts
-│   ├── vacancy-progress/        # Job application tracking
-│   │   ├── schemas/             # VacancyProgress schema
-│   │   ├── enums/               # Status enum
-│   │   ├── vacancy-progress.controller.ts  # CRUD, statistics
-│   │   ├── vacancy-progress.service.ts
-│   │   └── vacancy-progress.module.ts
 │   ├── employers/               # Employer details module
 │   │   ├── employers.controller.ts  # Get employer by ID
 │   │   ├── employers.service.ts
@@ -231,14 +225,6 @@ return { accessToken: '...', user: {...} };
 ### Employers (Public)
 - `GET /employers/:id` - Get employer details from hh.ru API (proxied)
 
-### Vacancy Progress (Protected)
-- `POST /vacancy-progress` - Create application tracking
-- `GET /vacancy-progress` - List applications (supports status filter, pagination)
-- `GET /vacancy-progress/statistics` - Get counts by status
-- `GET /vacancy-progress/:id` - Get single application
-- `PATCH /vacancy-progress/:id` - Update application
-- `DELETE /vacancy-progress/:id` - Delete application
-
 **All endpoints use `/api/v1` prefix**
 
 ## 🔧 Key Conventions
@@ -250,11 +236,6 @@ return { accessToken: '...', user: {...} };
 - VacanciesService methods: `saveVacancyFromHh()`, `refreshVacancyById()`, `deleteById()`
 - Controller methods: `@Get('me/vacancies')`, `@Post('me/vacancies/:hhId')`, `@Patch('me/vacancies/:hhId/progress')`
 - MongoDB operators: `$push` (add subdocument), `$pull` (remove)
-
-**VacancyProgress (NOT "Application")**:
-- Always use `VacancyProgress` in code (files, classes, routes, functions)
-- Avoid confusion with "app" or "application" referring to the software
-- UI text can display "Applications" for user-facing labels
 
 ### DTOs and Validation
 
