@@ -30,11 +30,25 @@ import {
   useHhCitiesByRegionId,
   useHhProfessionalRoles,
   useHhIndustries,
+  useHhAreaHierarchy,
 } from '@/hooks/useHhApi';
 
 interface FilterPanelProps {
   onFilterChange: (filters: HhSearchParams) => void;
   initialFilters?: HhSearchParams;
+}
+
+// Compute which accordions should be initially open based on URL params
+function getInitialAccordions(filters: HhSearchParams): Set<string> {
+  const set = new Set<string>();
+  if (filters.area) set.add('country');
+  if (filters.industry) set.add('industry');
+  if (filters.professional_role) set.add('professionalRole');
+  if (filters.salary || filters.currency || filters.only_with_salary) set.add('salary');
+  if (filters.experience) set.add('experience');
+  if (filters.schedule) set.add('schedule');
+  if (filters.employment) set.add('employment');
+  return set;
 }
 
 function FilterPanel({
@@ -53,24 +67,69 @@ function FilterPanel({
   // Track if user is actively typing (to prevent sync interference)
   const isTypingRef = useRef(false);
 
-  // Track which accordions have been opened (for lazy-loading)
-  const [expandedAccordions, setExpandedAccordions] = useState<Set<string>>(new Set());
+  // Controlled accordion state: which are visually expanded (toggleable)
+  const [openAccordions, setOpenAccordions] = useState<Set<string>>(
+    () => getInitialAccordions(initialFilters)
+  );
+
+  // Lazy-load gating: which have ever been opened (only grows, never shrinks)
+  const [loadedAccordions, setLoadedAccordions] = useState<Set<string>>(
+    () => getInitialAccordions(initialFilters)
+  );
+
+  // Resolve area hierarchy from URL param (e.g., area=2328 → country + region + city)
+  const { data: areaHierarchy } = useHhAreaHierarchy(
+    initialFilters.area,
+    !!initialFilters.area
+  );
+
+  // Track which area ID was last applied from hierarchy to avoid redundant updates
+  const hierarchyAppliedRef = useRef<string | undefined>(undefined);
+
+  // Apply hierarchy resolution to populate country/region and expand accordions
+  useEffect(() => {
+    if (!areaHierarchy) return;
+    if (hierarchyAppliedRef.current === initialFilters.area) return;
+
+    hierarchyAppliedRef.current = initialFilters.area;
+
+    setSelectedCountry(areaHierarchy.countryId);
+    if (areaHierarchy.regionId) {
+      setSelectedRegion(areaHierarchy.regionId);
+    }
+
+    // Expand location accordions based on resolved depth
+    setOpenAccordions((prev) => {
+      const next = new Set(prev);
+      next.add('country');
+      if (areaHierarchy.regionId) next.add('region');
+      if (areaHierarchy.cityId) next.add('city');
+      return next;
+    });
+    setLoadedAccordions((prev) => {
+      const next = new Set(prev);
+      next.add('country');
+      if (areaHierarchy.regionId) next.add('region');
+      if (areaHierarchy.cityId) next.add('city');
+      return next;
+    });
+  }, [areaHierarchy, initialFilters.area]);
 
   // Load dictionary data from HH.ru API (lazy-loaded on accordion open)
   const { data: dictionaries, isLoading: isDictLoading } = useHhDictionaries(
-    expandedAccordions.has('salary') ||
-    expandedAccordions.has('experience') ||
-    expandedAccordions.has('schedule') ||
-    expandedAccordions.has('employment')
+    loadedAccordions.has('salary') ||
+    loadedAccordions.has('experience') ||
+    loadedAccordions.has('schedule') ||
+    loadedAccordions.has('employment')
   );
   const { data: countries, isLoading: isCountriesLoading } = useHhCountries(
-    expandedAccordions.has('country')
+    loadedAccordions.has('country')
   );
   const { data: professionalRoles, isLoading: isProfRolesLoading } = useHhProfessionalRoles(
-    expandedAccordions.has('professionalRole')
+    loadedAccordions.has('professionalRole')
   );
   const { data: industries, isLoading: isIndustriesLoading } = useHhIndustries(
-    expandedAccordions.has('industry')
+    loadedAccordions.has('industry')
   );
 
   // Cascading location data (loaded based on user selections)
@@ -116,6 +175,16 @@ function FilterPanel({
       if (!isTypingRef.current) {
         setLocalSalary(initialFilters.salary);
       }
+
+      // If area changed externally, reset hierarchy tracking so it re-resolves
+      if (prev.area !== initialFilters.area) {
+        hierarchyAppliedRef.current = undefined;
+        if (!initialFilters.area) {
+          setSelectedCountry('');
+          setSelectedRegion('');
+        }
+      }
+
       // Update ref to track current initialFilters
       prevInitialFiltersRef.current = initialFilters;
     }
@@ -176,14 +245,25 @@ function FilterPanel({
     setSelectedCountry('');
     setSelectedRegion('');
     setLocalSalary(undefined);
+    setOpenAccordions(new Set()); // Collapse all
+    // NOTE: loadedAccordions is NOT cleared — data is already fetched
     onFilterChange(cleared);
   }, [onFilterChange]);
 
-  // Track accordion expansion for lazy-loading
+  // Track accordion expansion: toggle visual state, grow lazy-load set
   const handleAccordionChange = useCallback(
     (accordionName: string) => (_event: React.SyntheticEvent, isExpanded: boolean) => {
+      setOpenAccordions((prev) => {
+        const next = new Set(prev);
+        if (isExpanded) {
+          next.add(accordionName);
+        } else {
+          next.delete(accordionName);
+        }
+        return next;
+      });
       if (isExpanded) {
-        setExpandedAccordions((prev) => new Set(prev).add(accordionName));
+        setLoadedAccordions((prev) => new Set(prev).add(accordionName));
       }
     },
     []
@@ -208,81 +288,111 @@ function FilterPanel({
 
       <Stack spacing={2}>
         {/* Country */}
-        <Accordion onChange={handleAccordionChange('country')}>
+        <Accordion
+          expanded={openAccordions.has('country')}
+          onChange={handleAccordionChange('country')}
+        >
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
             <Typography>Country</Typography>
             {selectedCountry && <Chip label="1" size="small" sx={{ ml: 1 }} />}
           </AccordionSummary>
           <AccordionDetails>
-            <FormControl fullWidth disabled={isCountriesLoading}>
-              <InputLabel>Select Country</InputLabel>
-              <Select
-                value={selectedCountry}
-                label="Select Country"
-                onChange={(e) => {
-                  const countryId = e.target.value;
-                  setSelectedCountry(countryId);
-                  setSelectedRegion(''); // Reset region (cascade)
-                  // Set area to country ID (or undefined if "Any" selected)
-                  handleFilterChange('area', countryId || undefined);
-                }}
-                startAdornment={
-                  isCountriesLoading ? <CircularProgress size={20} sx={{ mr: 1 }} /> : null
-                }
-              >
-                <MenuItem value="">
-                  <em>Any</em>
-                </MenuItem>
-                {countries?.map((country) => (
-                  <MenuItem key={country.id} value={country.id}>
-                    {country.name}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+            <Autocomplete
+              disabled={isCountriesLoading}
+              loading={isCountriesLoading}
+              options={countries || []}
+              getOptionLabel={(option) => option.name}
+              value={countries?.find((c) => c.id === selectedCountry) || null}
+              onChange={(_, value) => {
+                const countryId = value?.id || '';
+                setSelectedCountry(countryId);
+                setSelectedRegion(''); // Reset cascade
+                handleFilterChange('area', countryId || undefined);
+              }}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Select Country"
+                  InputProps={{
+                    ...params.InputProps,
+                    startAdornment: (
+                      <>
+                        {isCountriesLoading ? <CircularProgress size={20} sx={{ mr: 1 }} /> : null}
+                        {params.InputProps.startAdornment}
+                      </>
+                    ),
+                  }}
+                />
+              )}
+              noOptionsText="No countries available"
+              filterOptions={(options, state) => {
+                if (!state.inputValue) return options.slice(0, 100);
+                const filtered = options.filter((option) =>
+                  option.name.toLowerCase().includes(state.inputValue.toLowerCase())
+                );
+                return filtered.slice(0, 100);
+              }}
+            />
           </AccordionDetails>
         </Accordion>
 
         {/* Region */}
-        <Accordion disabled={!selectedCountry} onChange={handleAccordionChange('region')}>
+        <Accordion
+          disabled={!selectedCountry}
+          expanded={openAccordions.has('region')}
+          onChange={handleAccordionChange('region')}
+        >
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
             <Typography>Region</Typography>
             {selectedRegion && <Chip label="1" size="small" sx={{ ml: 1 }} />}
           </AccordionSummary>
           <AccordionDetails>
-            <FormControl fullWidth disabled={!selectedCountry || isRegionsLoading}>
-              <InputLabel>Select Region</InputLabel>
-              <Select
-                value={selectedRegion}
-                label="Select Region"
-                onChange={(e) => {
-                  const regionId = e.target.value;
-                  setSelectedRegion(regionId);
-
-                  // If region selected, use its ID
-                  // If "Any" selected (empty string), fall back to country ID
-                  const areaId = regionId || selectedCountry;
-                  handleFilterChange('area', areaId || undefined);
-                }}
-                startAdornment={
-                  isRegionsLoading ? <CircularProgress size={20} sx={{ mr: 1 }} /> : null
-                }
-              >
-                <MenuItem value="">
-                  <em>Any</em>
-                </MenuItem>
-                {regions?.map((region) => (
-                  <MenuItem key={region.id} value={region.id}>
-                    {region.name}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+            <Autocomplete
+              disabled={!selectedCountry || isRegionsLoading}
+              loading={isRegionsLoading}
+              options={regions || []}
+              getOptionLabel={(option) => option.name}
+              value={regions?.find((r) => r.id === selectedRegion) || null}
+              onChange={(_, value) => {
+                const regionId = value?.id || '';
+                setSelectedRegion(regionId);
+                // If region selected, use its ID; if cleared, fall back to country
+                const areaId = regionId || selectedCountry;
+                handleFilterChange('area', areaId || undefined);
+              }}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Select Region"
+                  InputProps={{
+                    ...params.InputProps,
+                    startAdornment: (
+                      <>
+                        {isRegionsLoading ? <CircularProgress size={20} sx={{ mr: 1 }} /> : null}
+                        {params.InputProps.startAdornment}
+                      </>
+                    ),
+                  }}
+                />
+              )}
+              noOptionsText="No regions available"
+              filterOptions={(options, state) => {
+                if (!state.inputValue) return options.slice(0, 100);
+                const filtered = options.filter((option) =>
+                  option.name.toLowerCase().includes(state.inputValue.toLowerCase())
+                );
+                return filtered.slice(0, 100);
+              }}
+            />
           </AccordionDetails>
         </Accordion>
 
         {/* City */}
-        <Accordion disabled={!selectedRegion} onChange={handleAccordionChange('city')}>
+        <Accordion
+          disabled={!selectedRegion}
+          expanded={openAccordions.has('city')}
+          onChange={handleAccordionChange('city')}
+        >
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
             <Typography>City</Typography>
             {filters.area && <Chip label="1" size="small" sx={{ ml: 1 }} />}
@@ -329,7 +439,10 @@ function FilterPanel({
         </Accordion>
 
         {/* Industry */}
-        <Accordion onChange={handleAccordionChange('industry')}>
+        <Accordion
+          expanded={openAccordions.has('industry')}
+          onChange={handleAccordionChange('industry')}
+        >
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
             <Typography>Industry</Typography>
             {filters.industry && <Chip label="1" size="small" sx={{ ml: 1 }} />}
@@ -373,7 +486,10 @@ function FilterPanel({
         </Accordion>
 
         {/* Professional Role */}
-        <Accordion onChange={handleAccordionChange('professionalRole')}>
+        <Accordion
+          expanded={openAccordions.has('professionalRole')}
+          onChange={handleAccordionChange('professionalRole')}
+        >
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
             <Typography>Professional Role</Typography>
             {filters.professional_role && <Chip label="1" size="small" sx={{ ml: 1 }} />}
@@ -417,7 +533,10 @@ function FilterPanel({
         </Accordion>
 
         {/* Salary */}
-        <Accordion onChange={handleAccordionChange('salary')}>
+        <Accordion
+          expanded={openAccordions.has('salary')}
+          onChange={handleAccordionChange('salary')}
+        >
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
             <Typography>Salary</Typography>
           </AccordionSummary>
@@ -438,7 +557,7 @@ function FilterPanel({
               <FormControl fullWidth disabled={isDictLoading}>
                 <InputLabel>Currency</InputLabel>
                 <Select
-                  value={filters.currency || ''}
+                  value={currencyOptions.length > 0 ? (filters.currency || '') : ''}
                   label="Currency"
                   onChange={(e) =>
                     handleFilterChange('currency', e.target.value || undefined)
@@ -474,7 +593,10 @@ function FilterPanel({
         </Accordion>
 
         {/* Experience */}
-        <Accordion onChange={handleAccordionChange('experience')}>
+        <Accordion
+          expanded={openAccordions.has('experience')}
+          onChange={handleAccordionChange('experience')}
+        >
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
             <Typography>Experience</Typography>
           </AccordionSummary>
@@ -482,7 +604,7 @@ function FilterPanel({
             <FormControl fullWidth disabled={isDictLoading}>
               <InputLabel>Experience Level</InputLabel>
               <Select
-                value={filters.experience || ''}
+                value={experienceOptions.length > 0 ? (filters.experience || '') : ''}
                 label="Experience Level"
                 onChange={(e) =>
                   handleFilterChange('experience', e.target.value || undefined)
@@ -505,7 +627,10 @@ function FilterPanel({
         </Accordion>
 
         {/* Schedule */}
-        <Accordion onChange={handleAccordionChange('schedule')}>
+        <Accordion
+          expanded={openAccordions.has('schedule')}
+          onChange={handleAccordionChange('schedule')}
+        >
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
             <Typography>Schedule</Typography>
           </AccordionSummary>
@@ -513,7 +638,7 @@ function FilterPanel({
             <FormControl fullWidth disabled={isDictLoading}>
               <InputLabel>Work Schedule</InputLabel>
               <Select
-                value={filters.schedule || ''}
+                value={scheduleOptions.length > 0 ? (filters.schedule || '') : ''}
                 label="Work Schedule"
                 onChange={(e) =>
                   handleFilterChange('schedule', e.target.value || undefined)
@@ -536,7 +661,10 @@ function FilterPanel({
         </Accordion>
 
         {/* Employment Type */}
-        <Accordion onChange={handleAccordionChange('employment')}>
+        <Accordion
+          expanded={openAccordions.has('employment')}
+          onChange={handleAccordionChange('employment')}
+        >
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
             <Typography>Employment Type</Typography>
           </AccordionSummary>
@@ -544,7 +672,7 @@ function FilterPanel({
             <FormControl fullWidth disabled={isDictLoading}>
               <InputLabel>Employment</InputLabel>
               <Select
-                value={filters.employment || ''}
+                value={employmentOptions.length > 0 ? (filters.employment || '') : ''}
                 label="Employment"
                 onChange={(e) =>
                   handleFilterChange('employment', e.target.value || undefined)

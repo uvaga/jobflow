@@ -364,18 +364,6 @@ export default function SavedVacancyDetail() {
 
             {/* Action buttons */}
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 180 }}>
-              {vacancy.alternateUrl && (
-                <Button
-                  variant="contained"
-                  size="large"
-                  href={vacancy.alternateUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  endIcon={<OpenInNewIcon />}
-                >
-                  View original posting
-                </Button>
-              )}
               <Tooltip title="Fetch the latest vacancy data">
                 <Button
                   variant="outlined"
@@ -483,18 +471,6 @@ export default function SavedVacancyDetail() {
 
         {/* Bottom actions */}
         <Box sx={{ display: 'flex', justifyContent: 'center', gap: 2, mt: 4 }}>
-          {vacancy.alternateUrl && (
-            <Button
-              variant="contained"
-              size="large"
-              href={vacancy.alternateUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              endIcon={<OpenInNewIcon />}
-            >
-              View original posting
-            </Button>
-          )}
           <Button variant="outlined" size="large" onClick={handleBack}>
             Back to Saved Vacancies
           </Button>

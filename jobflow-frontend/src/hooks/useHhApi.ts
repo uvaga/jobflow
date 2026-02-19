@@ -30,6 +30,7 @@ export const hhApiKeys = {
   dictionaries: () => [...hhApiKeys.all, 'dictionaries'] as const,
   areas: () => [...hhApiKeys.all, 'areas'] as const,
   countries: () => [...hhApiKeys.areas(), 'countries'] as const,
+  areaHierarchy: (areaId: string) => [...hhApiKeys.areas(), 'hierarchy', areaId] as const,
   professionalAreas: () => [...hhApiKeys.all, 'professional-areas'] as const,
   industries: () => [...hhApiKeys.all, 'industries'] as const,
 };
@@ -166,6 +167,50 @@ export function useHhIndustries(enabled = true) {
     retry: 1,
     staleTime: 1000 * 60 * 60, // 1 hour - industries change very rarely
     gcTime: 1000 * 60 * 60 * 2, // 2 hours
+  });
+}
+
+/**
+ * Resolved area hierarchy (country → region → city)
+ */
+export interface AreaHierarchy {
+  countryId: string;
+  regionId: string | null;
+  cityId: string | null;
+}
+
+/**
+ * Resolves an area ID to its full hierarchy (country, region, city)
+ * by walking parent_id links up to the root.
+ * Makes at most 2 API calls (hh.ru area tree is exactly 3 levels deep).
+ */
+export function useHhAreaHierarchy(areaId: string | undefined, enabled = true) {
+  return useQuery<AreaHierarchy | null, Error>({
+    queryKey: areaId ? hhApiKeys.areaHierarchy(areaId) : ['hh-area-hierarchy-placeholder'],
+    queryFn: async (): Promise<AreaHierarchy | null> => {
+      if (!areaId) return null;
+
+      const target = await getHhAreaById(areaId);
+
+      // No parent → this is a country
+      if (!target.parent_id) {
+        return { countryId: areaId, regionId: null, cityId: null };
+      }
+
+      const parent = await getHhAreaById(target.parent_id);
+
+      // Parent has no parent → parent is country, target is region
+      if (!parent.parent_id) {
+        return { countryId: parent.id, regionId: areaId, cityId: null };
+      }
+
+      // Parent is region, parent.parent_id is country, target is city
+      return { countryId: parent.parent_id, regionId: parent.id, cityId: areaId };
+    },
+    enabled: enabled && !!areaId,
+    staleTime: 1000 * 60 * 60, // 1 hour
+    gcTime: 1000 * 60 * 60 * 2,
+    retry: 1,
   });
 }
 

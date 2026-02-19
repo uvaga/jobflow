@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -19,6 +19,7 @@ import { useSavedVacancies, useAddVacancy, useRemoveVacancy } from '@/hooks/useV
 import { useAuthStore } from '@/store/authStore';
 import { normalizeFromHhApi } from '@/utils/vacancyNormalizer';
 import { formatDate } from '@/utils/vacancyHelpers';
+import ConfirmDialog from '@/components/common/ConfirmDialog';
 import {
   VacancyDetailSkeleton,
   VacancyHeaderInfo,
@@ -49,14 +50,27 @@ export default function VacancyDetail() {
     navigate(-1);
   }, [navigate]);
 
+  const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
+
   const handleSaveToggle = useCallback(() => {
     if (!id) return;
     if (isSaved) {
-      removeVacancyMutation.mutate(id);
+      setShowRemoveConfirm(true);
     } else {
       addVacancyMutation.mutate(id);
     }
-  }, [id, isSaved, addVacancyMutation, removeVacancyMutation]);
+  }, [id, isSaved, addVacancyMutation]);
+
+  const handleConfirmRemove = useCallback(() => {
+    if (!id) return;
+    removeVacancyMutation.mutate(id, {
+      onSettled: () => setShowRemoveConfirm(false),
+    });
+  }, [id, removeVacancyMutation]);
+
+  const handleCancelRemove = useCallback(() => {
+    setShowRemoveConfirm(false);
+  }, []);
 
   if (isPending) {
     return <VacancyDetailSkeleton />;
@@ -113,7 +127,7 @@ export default function VacancyDetail() {
                   size="large"
                   href={vacancy.alternateUrl}
                   target="_blank"
-                  rel="noopener noreferrer"
+                  rel="noopener noreferrer nofollow"
                   endIcon={<OpenInNewIcon />}
                 >
                   Apply for this job
@@ -121,15 +135,17 @@ export default function VacancyDetail() {
               )}
               {isAuthenticated && (
                 <Tooltip title={isSaved ? 'Remove from saved vacancies' : 'Save vacancy to track it'}>
-                  <Button
-                    variant={isSaved ? 'contained' : 'outlined'}
-                    color={isSaved ? 'primary' : 'inherit'}
-                    startIcon={isSaved ? <BookmarkIcon /> : <BookmarkBorderIcon />}
-                    onClick={handleSaveToggle}
-                    disabled={addVacancyMutation.isPending || removeVacancyMutation.isPending}
-                  >
-                    {isSaved ? 'Saved' : 'Save'}
-                  </Button>
+                  <span>
+                    <Button
+                      variant={isSaved ? 'contained' : 'outlined'}
+                      color={isSaved ? 'primary' : 'inherit'}
+                      startIcon={isSaved ? <BookmarkIcon /> : <BookmarkBorderIcon />}
+                      onClick={handleSaveToggle}
+                      disabled={addVacancyMutation.isPending || removeVacancyMutation.isPending}
+                    >
+                      {isSaved ? 'Saved' : 'Save'}
+                    </Button>
+                  </span>
                 </Tooltip>
               )}
             </Box>
@@ -155,7 +171,7 @@ export default function VacancyDetail() {
               size="large"
               href={vacancy.alternateUrl}
               target="_blank"
-              rel="noopener noreferrer"
+              rel="noopener noreferrer nofollow"
               endIcon={<OpenInNewIcon />}
             >
               Apply for this job
@@ -166,6 +182,16 @@ export default function VacancyDetail() {
           </Button>
         </Box>
       </Box>
+
+      <ConfirmDialog
+        open={showRemoveConfirm}
+        title="Remove Vacancy"
+        message="Are you sure you want to remove this vacancy from your saved list? This action cannot be undone."
+        confirmText="Remove"
+        onConfirm={handleConfirmRemove}
+        onCancel={handleCancelRemove}
+        loading={removeVacancyMutation.isPending}
+      />
     </Container>
   );
 }

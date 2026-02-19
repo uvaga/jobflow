@@ -347,7 +347,6 @@ Reusable components shared between VacancyDetail and SavedVacancyDetail pages. A
 - Uses `useHhVacancy(id)` hook + `normalizeFromHhApi()` normalizer
 - Uses shared vacancy-detail components (VacancyHeaderInfo, KeySkillsSection, DescriptionSection, AdditionalInfoSection, ContactsSection)
 - Save/unsave button for authenticated users
-- "Apply for this job" and "View original posting" action buttons
 - VacancyDetailSkeleton for loading state
 
 **EmployerDetail** (`src/pages/EmployerDetail.tsx`) **Fully Implemented**
@@ -377,7 +376,7 @@ Reusable components shared between VacancyDetail and SavedVacancyDetail pages. A
 - Uses shared vacancy-detail components (VacancyHeaderInfo, KeySkillsSection, DescriptionSection, AdditionalInfoSection)
 - **Sections**: Header (status chip, employer, salary, location, work format), Action buttons, Dates, Progress, Key Skills, Description, Additional Info
 - **Progress management**: Status update dropdown, progress history timeline
-- **Actions**: "View original posting", "Refresh vacancy data", "Remove from Saved"
+- **Actions**: "Refresh vacancy data", "Remove from Saved"
 - **Dates**: Saved date, Last updated, Published
 
 ### Placeholder Pages

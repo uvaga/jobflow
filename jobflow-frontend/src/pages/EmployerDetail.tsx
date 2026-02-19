@@ -165,7 +165,7 @@ export default function EmployerDetail() {
                     <Link
                       href={employer.site_url}
                       target="_blank"
-                      rel="noopener noreferrer"
+                      rel="noopener noreferrer nofollow"
                       sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
                     >
                       {employer.site_url} <OpenInNewIcon fontSize="inherit" />

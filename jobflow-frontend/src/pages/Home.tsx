@@ -1,8 +1,11 @@
 import { Box, Container, Typography, Button, Stack } from '@mui/material';
 import { Link as RouterLink } from 'react-router-dom';
 import SearchIcon from '@mui/icons-material/Search';
+import { useAuthStore } from '../store/authStore';
 
 export default function Home() {
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+
   return (
     <Container maxWidth="lg">
       <title>JobFlow - Find Your Dream Job</title>
@@ -39,14 +42,16 @@ export default function Home() {
           >
             Start Searching
           </Button>
-          <Button
-            component={RouterLink}
-            to="/register"
-            variant="outlined"
-            size="large"
-          >
-            Sign Up Free
-          </Button>
+          {!isAuthenticated && (
+            <Button
+              component={RouterLink}
+              to="/register"
+              variant="outlined"
+              size="large"
+            >
+              Sign Up Free
+            </Button>
+          )}
         </Stack>
       </Box>
     </Container>

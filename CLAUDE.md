@@ -155,7 +155,7 @@ docker exec -it jobflow-mongodb mongosh -u jobflow_user -p jobflow_dev_password 
   - Loading/error/empty states
 - **Vacancy Detail** (`/vacancy/:id`): Public vacancy detail page from external API
   - Uses shared vacancy-detail components + vacancy normalizer
-  - Save/unsave button, apply/view original posting links
+  - Save/unsave button
 - **Saved Vacancies** (`/vacancies`): Protected list of user's saved vacancies
   - Filter by progress status, sort by date/name
   - VacancyCard grid with progress status chips
